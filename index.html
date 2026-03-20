@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zuper · Pipeline Go-Live Tracker</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', Consolas, 'Courier New', monospace;
+  --font-display: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --bg:#f4f5f7; --surface:#fff; --surface2:#f8f9fb; --surface3:#f0f2f5;
+  --border:#e4e6eb; --border2:#d0d4dc;
+  --text:#111827; --sub:#6b7280; --muted:#9ca3af;
+  --p1:#2563eb; --p1l:#eff6ff; --p1m:#bfdbfe;
+  --p2:#059669; --p2l:#ecfdf5; --p2m:#a7f3d0;
+  --p3:#d97706; --p3l:#fffbeb; --p3m:#fde68a;
+  --p4:#7c3aed; --p4l:#f5f3ff; --p4m:#ddd6fe;
+  --red:#dc2626; --redbg:#fef2f2; --redborder:#fecaca;
+  --green:#059669; --greenbg:#ecfdf5; --greenborder:#a7f3d0;
+  --yellow:#d97706; --yellowbg:#fffbeb; --yellowborder:#fde68a;
+  --shadow:0 1px 3px rgba(0,0,0,0.07),0 4px 12px rgba(0,0,0,0.05);
+  --shadow-lg:0 8px 32px rgba(0,0,0,0.14);
+}
+body { background:var(--bg); color:var(--text); font-family:var(--font-sans); font-size:14px; min-height:100vh; }
+
+/* ─── LOGIN SCREEN ─── */
+#loginScreen {
+  min-height:100vh; display:none; align-items:center; justify-content:center;
+  background:linear-gradient(135deg,#eff6ff 0%,#fafafa 50%,#ecfdf5 100%);
+  padding:20px;
+}
+.login-wrap { width:100%; max-width:400px; }
+.login-brand { text-align:center; margin-bottom:28px; }
+.login-brand .eye { font-family:var(--font-mono); font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+.login-brand h1 { font-family:var(--font-display); font-size:26px; font-weight:800; }
+.login-brand h1 span { color:var(--p1); }
+.login-brand p { font-size:13px; color:var(--sub); margin-top:6px; }
+.login-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:30px; box-shadow:var(--shadow-lg); }
+.tab-row { display:flex; gap:0; margin-bottom:24px; background:var(--surface2); border-radius:10px; padding:4px; }
+.tab-btn { flex:1; padding:7px; border:none; background:none; border-radius:7px; font-family:var(--font-sans); font-size:13px; font-weight:500; color:var(--sub); cursor:pointer; transition:all 0.15s; }
+.tab-btn.active { background:var(--surface); color:var(--text); box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+.form-field { display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }
+.form-field label { font-family:var(--font-mono); font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+.form-field input { background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-sans); font-size:13px; padding:9px 12px; outline:none; width:100%; transition:border-color 0.2s; }
+.form-field input:focus { border-color:var(--p1); }
+.form-field input::placeholder { color:var(--muted); }
+.btn-primary { width:100%; padding:10px; background:var(--p1); color:#fff; border:none; border-radius:9px; font-family:var(--font-sans); font-size:13px; font-weight:500; cursor:pointer; transition:background 0.15s; margin-top:4px; }
+.btn-primary:hover { background:#1d4ed8; }
+.auth-err { background:var(--redbg); border:1px solid var(--redborder); color:var(--red); border-radius:8px; padding:8px 12px; font-size:12px; margin-top:10px; display:none; }
+.auth-err.show { display:block; }
+.setup-link-row { text-align:center; margin-top:14px; font-size:12px; color:var(--muted); }
+.setup-link { color:var(--p1); cursor:pointer; text-decoration:none; font-weight:500; }
+.setup-link:hover { text-decoration:underline; }
+
+/* ─── LOADING OVERLAY ─── */
+#loadingScreen {
+  min-height:100vh; display:none; align-items:center; justify-content:center;
+  flex-direction:column; gap:14px;
+  background:linear-gradient(135deg,#eff6ff 0%,#fafafa 50%,#ecfdf5 100%);
+}
+.loader-dot { width:36px; height:36px; border-radius:50%; border:3px solid var(--p1m); border-top-color:var(--p1); animation:spin 0.7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+#loadingScreen p { font-family:var(--font-mono); font-size:11px; color:var(--muted); letter-spacing:0.08em; }
+
+/* ─── APP ─── */
+#appScreen { display:none; min-height:100vh; }
+.layout { display:flex; min-height:100vh; }
+
+/* SIDEBAR */
+.sidebar { width:240px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; }
+.sidebar-brand { padding:18px 18px 14px; border-bottom:1px solid var(--border); }
+.brand-eye { font-family:var(--font-mono); font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
+.brand-title { font-family:var(--font-display); font-size:14px; font-weight:800; color:var(--text); line-height:1.25; }
+.brand-title span { color:var(--p1); }
+.pm-card { margin:10px 12px; padding:10px 12px; background:var(--p1l); border:1px solid var(--p1m); border-radius:10px; display:flex; align-items:center; gap:10px; }
+.pm-avatar { width:30px; height:30px; border-radius:50%; background:var(--p1); display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-size:12px; font-weight:700; color:#fff; flex-shrink:0; }
+.pm-info { flex:1; min-width:0; }
+.pm-name { font-size:12px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pm-role { font-family:var(--font-mono); font-size:9px; color:var(--p1); text-transform:uppercase; letter-spacing:0.1em; }
+.pm-logout { background:none; border:none; cursor:pointer; color:var(--muted); font-size:14px; padding:2px 4px; border-radius:4px; line-height:1; transition:all 0.15s; }
+.pm-logout:hover { color:var(--red); background:var(--redbg); }
+.sidebar-sec { font-family:var(--font-mono); font-size:9px; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); padding:12px 18px 6px; }
+.project-list { flex:1; overflow-y:auto; }
+.project-item { display:flex; align-items:center; gap:9px; padding:8px 16px; cursor:pointer; border-left:3px solid transparent; transition:all 0.15s; }
+.project-item:hover { background:var(--surface2); }
+.project-item.active { background:var(--p1l); border-left-color:var(--p1); }
+.proj-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; background:var(--border2); }
+.project-item.active .proj-dot { background:var(--p1); }
+.proj-info { flex:1; min-width:0; }
+.proj-name { font-size:12px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.project-item.active .proj-name { color:var(--p1); }
+.proj-meta { font-family:var(--font-mono); font-size:9px; color:var(--muted); margin-top:1px; }
+.proj-del { opacity:0; background:none; border:none; cursor:pointer; color:var(--muted); font-size:12px; padding:2px 4px; border-radius:3px; transition:all 0.15s; }
+.project-item:hover .proj-del { opacity:1; }
+.proj-del:hover { background:var(--redbg); color:var(--red); }
+.add-proj-btn { margin:10px 14px; padding:8px 12px; background:var(--p1); color:#fff; border:none; border-radius:8px; font-family:var(--font-sans); font-size:12px; font-weight:500; cursor:pointer; width:calc(100% - 28px); display:flex; align-items:center; gap:7px; transition:background 0.15s; }
+.add-proj-btn:hover { background:#1d4ed8; }
+.sidebar-foot { padding:12px 18px; border-top:1px solid var(--border); font-family:var(--font-mono); font-size:9px; color:var(--muted); }
+
+/* MAIN */
+.main { flex:1; overflow-y:auto; }
+.empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; height:80vh; gap:14px; text-align:center; color:var(--muted); padding:20px; }
+.empty-icon { font-size:48px; }
+.empty-state h2 { font-family:var(--font-display); font-size:20px; font-weight:700; color:var(--sub); }
+.empty-state p { font-size:13px; max-width:260px; line-height:1.6; }
+
+/* PROJECT VIEW */
+#projectView { padding:26px 32px; }
+
+/* Header */
+.proj-header { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-bottom:22px; padding-bottom:20px; border-bottom:1px solid var(--border); }
+.ph-left { display:flex; flex-direction:column; gap:6px; flex:1; min-width:0; }
+.ph-eye { font-family:var(--font-mono); font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:var(--muted); }
+.editable-title { font-family:var(--font-display); font-size:24px; font-weight:800; color:var(--text); border:none; background:none; outline:none; width:100%; max-width:440px; border-bottom:2px dashed transparent; transition:border-color 0.2s; padding:2px 0; }
+.editable-title:hover,.editable-title:focus { border-bottom-color:var(--border2); }
+.editable-sub { font-size:13px; color:var(--sub); border:none; background:none; outline:none; width:100%; max-width:440px; border-bottom:1px dashed transparent; transition:border-color 0.2s; padding:2px 0; }
+.editable-sub:hover,.editable-sub:focus { border-bottom-color:var(--border2); }
+.ph-right { display:flex; flex-direction:column; align-items:flex-end; gap:8px; flex-shrink:0; }
+.badge-prop { display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-family:var(--font-mono); font-size:9px; letter-spacing:0.1em; text-transform:uppercase; font-weight:500; background:var(--p1l); color:var(--p1); border:1px solid var(--p1m); }
+.logo-area { display:flex; align-items:center; gap:8px; }
+.logo-preview { width:56px; height:38px; border:1px solid var(--border); border-radius:6px; object-fit:contain; background:var(--surface2); display:none; padding:3px; }
+.logo-preview.show { display:block; }
+.logo-btn { display:flex; align-items:center; gap:5px; padding:4px 10px; background:var(--surface2); border:1px solid var(--border); border-radius:7px; font-size:11px; color:var(--sub); cursor:pointer; transition:all 0.15s; white-space:nowrap; }
+.logo-btn:hover { background:var(--surface3); }
+.logo-btn input { display:none; }
+.logo-rm { background:none; border:none; cursor:pointer; color:var(--muted); font-size:12px; }
+.logo-rm:hover { color:var(--red); }
+.hf { display:flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11px; color:var(--muted); }
+.hf input { background:none; border:none; border-bottom:1px dashed var(--border2); color:var(--text); font-family:var(--font-mono); font-size:11px; outline:none; padding:1px 4px; width:130px; }
+.hf.gl input { color:var(--p1); font-weight:600; }
+
+/* DASHBOARD */
+.dashboard { margin-bottom:20px; }
+.dash-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.sec-lbl { font-family:var(--font-mono); font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:var(--muted); }
+.days-badge { display:flex; align-items:center; gap:6px; padding:5px 12px; background:var(--p1l); border:1px solid var(--p1m); border-radius:8px; font-family:var(--font-mono); font-size:11px; color:var(--p1); }
+.days-badge strong { font-size:15px; font-family:var(--font-display); font-weight:800; }
+.dash-grid { display:grid; grid-template-columns:190px 1fr; gap:12px; }
+.donut-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; }
+.donut-wrap { position:relative; width:96px; height:96px; }
+.donut-svg { width:100%; height:100%; transform:rotate(-90deg); }
+.donut-bg { fill:none; stroke:var(--border); stroke-width:10; }
+.donut-fill { fill:none; stroke-width:10; stroke-linecap:round; transition:stroke-dasharray 0.5s ease; }
+.donut-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.donut-pct { font-family:var(--font-display); font-size:20px; font-weight:800; color:var(--text); line-height:1; }
+.donut-lbl { font-family:var(--font-mono); font-size:9px; color:var(--muted); margin-top:1px; }
+.donut-name { font-family:var(--font-display); font-size:12px; font-weight:700; color:var(--text); }
+.donut-sub { font-family:var(--font-mono); font-size:9px; color:var(--muted); text-align:center; }
+.dash-pipes { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+.dp { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; position:relative; overflow:hidden; }
+.dp::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+.dp1::before{background:var(--p1);}.dp2::before{background:var(--p2);}
+.dp3::before{background:var(--p3);}.dp4::before{background:var(--p4);}
+.dp-num { font-family:var(--font-mono); font-size:9px; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:2px; }
+.dp1 .dp-num{color:var(--p1);}.dp2 .dp-num{color:var(--p2);}
+.dp3 .dp-num{color:var(--p3);}.dp4 .dp-num{color:var(--p4);}
+.dp-name { font-family:var(--font-display); font-size:11px; font-weight:700; color:var(--text); margin-bottom:7px; }
+.dp-stat { display:inline-flex; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:500; margin-bottom:7px; }
+.dp-pt { height:4px; background:var(--border); border-radius:99px; overflow:hidden; margin-bottom:4px; }
+.dp-pf { height:100%; border-radius:99px; transition:width 0.4s; }
+.dp1 .dp-pf{background:var(--p1);}.dp2 .dp-pf{background:var(--p2);}
+.dp3 .dp-pf{background:var(--p3);}.dp4 .dp-pf{background:var(--p4);}
+.dp-pct { font-family:var(--font-mono); font-size:10px; color:var(--muted); }
+.dp-date { font-family:var(--font-mono); font-size:9px; color:var(--muted); margin-top:5px; }
+.dp-date span { color:var(--text); }
+
+/* TIMELINE */
+.tl-section { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px 24px; margin-bottom:20px; }
+.timeline { display:flex; }
+.tl-item { flex:1; display:flex; flex-direction:column; align-items:center; position:relative; }
+.tl-item:not(:last-child)::after { content:''; position:absolute; top:14px; left:50%; width:100%; height:2px; background:var(--border); }
+.tl-dot { width:28px; height:28px; border-radius:50%; border:2px solid var(--border2); background:var(--surface2); display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:10px; font-weight:500; color:var(--sub); z-index:1; position:relative; }
+.tl-item.tp1 .tl-dot{border-color:var(--p1);color:var(--p1);background:var(--p1l);}
+.tl-item.tp2 .tl-dot{border-color:var(--p2);color:var(--p2);background:var(--p2l);}
+.tl-item.tp3 .tl-dot{border-color:var(--p3);color:var(--p3);background:var(--p3l);}
+.tl-item.tp4 .tl-dot{border-color:var(--p4);color:var(--p4);background:var(--p4l);}
+.tl-name { margin-top:9px; font-family:var(--font-display); font-size:11px; font-weight:700; color:var(--text); text-align:center; }
+.tl-dw { margin-top:5px; }
+.tl-dw input { background:var(--surface2); border:1px solid var(--border); border-radius:6px; color:var(--text); font-family:var(--font-mono); font-size:10px; padding:4px 7px; outline:none; width:116px; cursor:pointer; }
+.tp1 .tl-dw input:focus{border-color:var(--p1);}
+.tp2 .tl-dw input:focus{border-color:var(--p2);}
+.tp3 .tl-dw input:focus{border-color:var(--p3);}
+.tp4 .tl-dw input:focus{border-color:var(--p4);}
+
+/* PIPELINE CARDS */
+.pipelines { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:22px; }
+.pc { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.pc.pp1{border-top:3px solid var(--p1);}.pc.pp2{border-top:3px solid var(--p2);}
+.pc.pp3{border-top:3px solid var(--p3);}.pc.pp4{border-top:3px solid var(--p4);}
+.pc-hd { padding:14px 18px 12px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+.pc-num { font-family:var(--font-mono); font-size:9px; letter-spacing:0.14em; text-transform:uppercase; margin-bottom:2px; }
+.pp1 .pc-num{color:var(--p1);}.pp2 .pc-num{color:var(--p2);}
+.pp3 .pc-num{color:var(--p3);}.pp4 .pc-num{color:var(--p4);}
+.pc-name { font-family:var(--font-display); font-size:15px; font-weight:700; color:var(--text); }
+.pc-desc { font-size:11px; color:var(--muted); margin-top:1px; max-width:200px; }
+.ss { border:1px solid var(--border); border-radius:20px; padding:4px 10px; font-family:var(--font-sans); font-size:11px; font-weight:500; cursor:pointer; outline:none; appearance:none; flex-shrink:0; background:var(--surface2); color:var(--sub); }
+.pc-body { padding:14px 18px; display:flex; flex-direction:column; gap:12px; }
+.dr3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:7px; }
+.dr2 { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+.df { display:flex; flex-direction:column; gap:4px; }
+.df label { font-family:var(--font-mono); font-size:9px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+.df input[type=date],.df input[type=text],.df textarea {
+  background:var(--surface2); border:1px solid var(--border); border-radius:6px;
+  color:var(--text); font-family:var(--font-sans); font-size:12px;
+  padding:6px 9px; outline:none; width:100%; transition:border-color 0.2s; resize:none;
+}
+.df input::placeholder,.df textarea::placeholder { color:var(--muted); }
+.pp1 .df input:focus,.pp1 .df textarea:focus{border-color:var(--p1);}
+.pp2 .df input:focus,.pp2 .df textarea:focus{border-color:var(--p2);}
+.pp3 .df input:focus,.pp3 .df textarea:focus{border-color:var(--p3);}
+.pp4 .df input:focus,.pp4 .df textarea:focus{border-color:var(--p4);}
+.cl-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; }
+.cl-title { font-family:var(--font-mono); font-size:9px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+.cl-add-btn { font-size:11px; color:var(--p1); background:none; border:none; cursor:pointer; font-weight:500; }
+.cl-item { display:flex; align-items:center; gap:7px; font-size:12px; padding:5px 8px; border-radius:6px; border:1px solid var(--border); background:var(--surface2); margin-bottom:3px; }
+.cl-item:last-child { margin-bottom:0; }
+.cl-item:hover { background:var(--surface3); }
+.cl-item input[type=checkbox] { width:13px; height:13px; cursor:pointer; flex-shrink:0; }
+.pp1 .cl-item input{accent-color:var(--p1);}.pp2 .cl-item input{accent-color:var(--p2);}
+.pp3 .cl-item input{accent-color:var(--p3);}.pp4 .cl-item input{accent-color:var(--p4);}
+.cl-text { flex:1; }
+.cl-item.done .cl-text { text-decoration:line-through; color:var(--muted); }
+.cl-del { opacity:0; background:none; border:none; cursor:pointer; color:var(--muted); font-size:13px; padding:0 2px; }
+.cl-item:hover .cl-del { opacity:1; }
+.cl-del:hover { color:var(--red); }
+.cl-add-row { display:flex; gap:6px; margin-top:4px; }
+.cl-add-inp { flex:1; background:var(--surface2); border:1px dashed var(--p1); border-radius:6px; color:var(--text); font-family:var(--font-sans); font-size:12px; padding:5px 9px; outline:none; }
+.cl-ok { background:var(--p1); color:#fff; border:none; border-radius:6px; padding:5px 10px; font-size:11px; cursor:pointer; }
+.cl-no { background:none; border:1px solid var(--border); border-radius:6px; padding:5px 8px; font-size:11px; cursor:pointer; color:var(--sub); }
+.prog-wrap { display:flex; flex-direction:column; gap:4px; }
+.prog-lbl { display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:10px; color:var(--muted); }
+.prog-track { height:5px; background:var(--border); border-radius:99px; overflow:hidden; }
+.prog-fill { height:100%; border-radius:99px; transition:width 0.35s ease; }
+.pp1 .prog-fill{background:var(--p1);}.pp2 .prog-fill{background:var(--p2);}
+.pp3 .prog-fill{background:var(--p3);}.pp4 .prog-fill{background:var(--p4);}
+.page-footer { display:flex; justify-content:space-between; align-items:center; padding-top:18px; border-top:1px solid var(--border); }
+.footer-txt { font-family:var(--font-mono); font-size:10px; color:var(--muted); }
+.footer-txt strong { color:var(--sub); }
+.print-btn { padding:7px 16px; border-radius:8px; border:1px solid var(--border2); background:var(--surface); color:var(--text); font-family:var(--font-mono); font-size:11px; cursor:pointer; }
+.print-btn:hover { background:var(--surface2); }
+
+/* MODAL */
+.modal-ov { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.2); z-index:200; align-items:center; justify-content:center; }
+.modal-ov.open { display:flex; }
+.modal { background:var(--surface); border-radius:14px; padding:26px; width:380px; box-shadow:var(--shadow-lg); border:1px solid var(--border); }
+.modal h2 { font-family:var(--font-display); font-size:17px; font-weight:800; margin-bottom:16px; }
+.mf { display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }
+.mf label { font-family:var(--font-mono); font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+.mf input,.mf textarea { background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:var(--font-sans); font-size:13px; padding:8px 12px; outline:none; width:100%; resize:none; }
+.mf input:focus,.mf textarea:focus { border-color:var(--p1); }
+.modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
+.btn-cancel { padding:7px 16px; border:1px solid var(--border); border-radius:8px; background:none; color:var(--sub); font-family:var(--font-sans); font-size:13px; cursor:pointer; }
+.btn-ok { padding:7px 18px; border:none; border-radius:8px; background:var(--p1); color:#fff; font-family:var(--font-sans); font-size:13px; font-weight:500; cursor:pointer; }
+.btn-ok:hover { background:#1d4ed8; }
+
+/* STATUS STYLES */
+.sns{background:#f3f4f6;color:#6b7280;border-color:#d1d5db;}
+.sip{background:var(--yellowbg);color:var(--yellow);border-color:var(--yellowborder);}
+.sar{background:var(--redbg);color:var(--red);border-color:var(--redborder);}
+.sdn{background:var(--greenbg);color:var(--green);border-color:var(--greenborder);}
+
+/* TOAST */
+#toast { position:fixed; bottom:20px; right:20px; background:#111827; color:#e5e7eb; padding:7px 16px; border-radius:8px; font-family:var(--font-mono); font-size:11px; z-index:9999; opacity:0; transition:opacity 0.25s; pointer-events:none; }
+
+@media print {
+  .sidebar,.add-proj-btn,.print-btn,.modal-ov,.pm-logout { display:none !important; }
+  #projectView { padding:16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══ LOADING ══ -->
+<div id="loadingScreen">
+  <div class="loader-dot"></div>
+  <p id="loadingMsg">Connecting to database…</p>
+</div>
+
+<!-- ══ LOGIN SCREEN ══ -->
+<div id="loginScreen">
+  <div class="login-wrap">
+    <div class="login-brand">
+      <div class="eye">Zuper · Roofing Vertical</div>
+      <h1>Pipeline <span>Go-Live</span> Tracker</h1>
+      <p>Sign in to manage your customer deployments</p>
+    </div>
+    <div class="login-card">
+      <div class="tab-row">
+        <button class="tab-btn active" id="tabLogin" onclick="switchTab('login')">Sign In</button>
+        <button class="tab-btn" id="tabReg" onclick="switchTab('register')">Register</button>
+      </div>
+      <div id="loginForm">
+        <div class="form-field"><label>Username</label><input type="text" id="lUser" placeholder="your username" autocomplete="username"></div>
+        <div class="form-field"><label>Password</label><input type="password" id="lPass" placeholder="••••••••" autocomplete="current-password"></div>
+        <button class="btn-primary" onclick="doLogin()">Sign In →</button>
+        <div class="auth-err" id="loginErr">Incorrect username or password.</div>
+      </div>
+      <div id="regForm" style="display:none;">
+        <div class="form-field"><label>Full Name</label><input type="text" id="rName" placeholder="Your full name"></div>
+        <div class="form-field"><label>Username</label><input type="text" id="rUser" placeholder="choose a username (lowercase)"></div>
+        <div class="form-field"><label>Password</label><input type="password" id="rPass" placeholder="create a password"></div>
+        <button class="btn-primary" onclick="doRegister()">Create Account →</button>
+        <div class="auth-err" id="regErr">Username already taken.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP ══ -->
+<div id="appScreen">
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-eye">Zuper · Roofing Vertical</div>
+        <div class="brand-title">Pipeline <span>Go-Live</span><br>Tracker</div>
+      </div>
+      <div class="pm-card">
+        <div class="pm-avatar" id="pmAvatar">A</div>
+        <div class="pm-info">
+          <div class="pm-name" id="pmName">PM</div>
+          <div class="pm-role">Project Manager</div>
+        </div>
+        <button class="pm-logout" onclick="doLogout()" title="Sign out">⏻</button>
+      </div>
+      <div class="sidebar-sec">Customer Projects</div>
+      <div class="project-list" id="projectList"></div>
+      <button class="add-proj-btn" onclick="openNewProj()">
+        <span style="font-size:16px;font-weight:300;line-height:1">+</span> New Customer Project
+      </button>
+      <div class="sidebar-foot">4 Pipelines · Single Job Architecture</div>
+    </aside>
+
+    <main class="main">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">📋</div>
+        <h2>No project selected</h2>
+        <p>Create a new customer project to start tracking pipeline go-live dates.</p>
+        <button class="btn-ok" style="margin-top:4px" onclick="openNewProj()">+ New Customer Project</button>
+      </div>
+
+      <div id="projectView" style="display:none;">
+        <div class="proj-header">
+          <div class="ph-left">
+            <div class="ph-eye">Single Job Architecture · Go-Live Tracker</div>
+            <input class="editable-title" id="vTitle" type="text" placeholder="Customer / Project Name" oninput="saveMeta('name',this.value)">
+            <input class="editable-sub" id="vDesc" type="text" placeholder="Short description…" oninput="saveMeta('desc',this.value)">
+          </div>
+          <div class="ph-right">
+            <div class="logo-area">
+              <img id="logoPreview" class="logo-preview" src="" alt="Logo">
+              <label class="logo-btn">📎 Upload Logo<input type="file" accept="image/*" onchange="handleLogo(this)"></label>
+              <button class="logo-rm" id="logoRm" style="display:none" onclick="removeLogo()">✕</button>
+            </div>
+            <span class="badge-prop">Proposed Model</span>
+            <div class="hf">Updated: <input type="date" id="vUpdated" oninput="saveMeta('updated',this.value)"></div>
+            <div class="hf gl">🎯 Go-Live Target: <input type="date" id="vGLT" oninput="saveMeta('goLiveTarget',this.value);recalcDays()"></div>
+            <div class="hf">PM: <input type="text" id="vPM" placeholder="PM Name" oninput="saveMeta('pm',this.value)"></div>
+          </div>
+        </div>
+
+        <!-- DASHBOARD -->
+        <div class="dashboard">
+          <div class="dash-top">
+            <span class="sec-lbl">Project Dashboard</span>
+            <div class="days-badge" id="daysBadge" style="display:none">
+              🗓 <strong id="daysCount">—</strong> days to go-live
+            </div>
+          </div>
+          <div class="dash-grid">
+            <div class="donut-card">
+              <div class="donut-wrap">
+                <svg class="donut-svg" viewBox="0 0 36 36">
+                  <circle class="donut-bg" cx="18" cy="18" r="13"/>
+                  <circle class="donut-fill" id="donutFill" cx="18" cy="18" r="13" stroke-dasharray="0 81.68"/>
+                </svg>
+                <div class="donut-center">
+                  <div class="donut-pct" id="donutPct">0%</div>
+                  <div class="donut-lbl">overall</div>
+                </div>
+              </div>
+              <div class="donut-name">Readiness</div>
+              <div class="donut-sub" id="donutSub">0 of 20 checks</div>
+            </div>
+            <div class="dash-pipes" id="dashPipes"></div>
+          </div>
+        </div>
+
+        <!-- TIMELINE -->
+        <div class="tl-section">
+          <div class="sec-lbl" style="margin-bottom:18px">Deployment Timeline — Go-Live Milestones</div>
+          <div class="timeline">
+            <div class="tl-item tp1"><div class="tl-dot">01</div><div class="tl-name">Lead Qual.</div><div class="tl-dw"><input type="date" data-tl="0" oninput="syncTL(this)"></div></div>
+            <div class="tl-item tp2"><div class="tl-dot">02</div><div class="tl-name">Inspection</div><div class="tl-dw"><input type="date" data-tl="1" oninput="syncTL(this)"></div></div>
+            <div class="tl-item tp3"><div class="tl-dot">03</div><div class="tl-name">Production</div><div class="tl-dw"><input type="date" data-tl="2" oninput="syncTL(this)"></div></div>
+            <div class="tl-item tp4"><div class="tl-dot">04</div><div class="tl-name">Revenue</div><div class="tl-dw"><input type="date" data-tl="3" oninput="syncTL(this)"></div></div>
+          </div>
+        </div>
+
+        <div class="pipelines" id="pipelineCards"></div>
+
+        <div class="page-footer">
+          <div class="footer-txt">Zuper · Roofing Vertical &nbsp;·&nbsp; <strong>One job object — all pipelines, all financials in one place.</strong></div>
+          <button class="print-btn" onclick="window.print()">⎙ Print / Export PDF</button>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- NEW PROJECT MODAL -->
+<div class="modal-ov" id="newProjModal">
+  <div class="modal">
+    <h2>New Customer Project</h2>
+    <div class="mf"><label>Customer / Project Name</label><input type="text" id="mpName" placeholder="e.g. Acme Roofing — Phase 1"></div>
+    <div class="mf"><label>Description</label><textarea rows="2" id="mpDesc" placeholder="Brief scope or deployment description…"></textarea></div>
+    <div class="mf"><label>Go-Live Target Date</label><input type="date" id="mpGL"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('newProjModal')">Cancel</button>
+      <button class="btn-ok" onclick="createProject()">Create Project</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast">✓ Saved</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  PIPELINE DEFINITIONS
+// ═══════════════════════════════════════════════════
+const PDEFS = [
+  { key:'p1', cls:'pp1', dcls:'dp1', num:'01', name:'Lead Qualification', desc:'Qualify incoming leads before committing field resources',
+    checks:['Status flow configured (New Lead → Qualified → Cold Lead)','Auto-create job automation enabled','Checklist trigger → Inspection category tested','Attempt status reschedule follow-ups verified','UAT sign-off received'] },
+  { key:'p2', cls:'pp2', dcls:'dp2', num:'02', name:'Inspection', desc:'On-site inspection and signed proposal from customer',
+    checks:['Status flow configured (Scheduled → Won → Approved)','Proposal acceptance → line items auto-added to job','Deposit collection on proposal sign tested','Approval → next production category trigger verified','UAT sign-off received'] },
+  { key:'p3', cls:'pp3', dcls:'dp3', num:'03', name:'Production', desc:'Execute contracted work with customer sign-off',
+    checks:['All production categories configured (Roofing, Gutter, Siding, Repair)','Change orders → accepted quote line items auto-added','Closed → checklist determines next category logic tested','Sequential repeats for each production category verified','UAT sign-off received'] },
+  { key:'p4', cls:'pp4', dcls:'dp4', num:'04', name:'Revenue', desc:'Payment collection and revenue tracking',
+    checks:['Deposit auto-trigger at proposal signature configured','Final invoice → accepted quote at job close tested','Payment methods & partial payment config confirmed with SLT','Reminders and reporting views reviewed','UAT sign-off received'] }
+];
+
+// ═══════════════════════════════════════════════════
+//  FIREBASE CONFIG — hardcoded, no setup screen needed
+// ═══════════════════════════════════════════════════
+const LS_SESSION = 'zuper_session';
+
+// ── Your Firebase project ──
+const FB = {
+  dbUrl:     'https://project-go-live-planner-default-rtdb.firebaseio.com',
+  apiKey:    'AIzaSyD2ORYh1gJJrLZALxxZ9DITqY9ZIT5sDXQ',
+  projectId: 'project-go-live-planner'
+};
+
+let currentUser = null;
+let currentProjectId = null;
+let saveDebounceTimer = null;
+
+// ═══════════════════════════════════════════════════
+//  FIREBASE REST API HELPERS
+// ═══════════════════════════════════════════════════
+async function fbGet(path) {
+  const r = await fetch(`${FB.dbUrl}/${path}.json`);
+  if (!r.ok) throw new Error(`Firebase GET failed: ${r.status}`);
+  return r.json();
+}
+
+async function fbSet(path, data) {
+  const r = await fetch(`${FB.dbUrl}/${path}.json`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(data)
+  });
+  if (!r.ok) throw new Error(`Firebase PUT failed: ${r.status}`);
+  return r.json();
+}
+
+async function fbPatch(path, data) {
+  const r = await fetch(`${FB.dbUrl}/${path}.json`, {
+    method:'PATCH', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(data)
+  });
+  if (!r.ok) throw new Error(`Firebase PATCH failed: ${r.status}`);
+  return r.json();
+}
+
+async function fbDelete(path) {
+  const r = await fetch(`${FB.dbUrl}/${path}.json`, { method:'DELETE' });
+  if (!r.ok) throw new Error(`Firebase DELETE failed: ${r.status}`);
+}
+
+// ═══════════════════════════════════════════════════
+//  SETUP
+// ═══════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════
+//  AUTH
+// ═══════════════════════════════════════════════════
+function switchTab(tab) {
+  document.getElementById('loginForm').style.display = tab==='login' ? '' : 'none';
+  document.getElementById('regForm').style.display   = tab==='register' ? '' : 'none';
+  document.getElementById('tabLogin').classList.toggle('active', tab==='login');
+  document.getElementById('tabReg').classList.toggle('active', tab==='register');
+  document.getElementById('loginErr').classList.remove('show');
+  document.getElementById('regErr').classList.remove('show');
+}
+
+async function doLogin() {
+  const u = document.getElementById('lUser').value.trim().toLowerCase();
+  const p = document.getElementById('lPass').value;
+  if (!u||!p) return;
+  showLoading('Signing in…');
+  try {
+    const userData = await fbGet(`users/${u}`);
+    if (userData && userData.password === btoa(p)) {
+      localStorage.setItem(LS_SESSION, JSON.stringify({ username:u, name:userData.displayName }));
+      await activateApp(u, userData.displayName);
+    } else {
+      hideLoading();
+      document.getElementById('loginErr').classList.add('show');
+    }
+  } catch(e) {
+    hideLoading();
+    document.getElementById('loginErr').textContent = 'Connection error. Check Firebase URL.';
+    document.getElementById('loginErr').classList.add('show');
+  }
+}
+
+async function doRegister() {
+  const name = document.getElementById('rName').value.trim();
+  const u    = document.getElementById('rUser').value.trim().toLowerCase().replace(/\s+/g,'_');
+  const p    = document.getElementById('rPass').value;
+  const err  = document.getElementById('regErr');
+  if (!name||!u||!p) { err.textContent='All fields required.'; err.classList.add('show'); return; }
+  showLoading('Creating account…');
+  try {
+    const existing = await fbGet(`users/${u}`);
+    if (existing) {
+      hideLoading();
+      err.textContent='Username already taken.'; err.classList.add('show');
+      return;
+    }
+    await fbSet(`users/${u}`, { displayName:name, password:btoa(p), projects:{} });
+    localStorage.setItem(LS_SESSION, JSON.stringify({ username:u, name }));
+    await activateApp(u, name);
+  } catch(e) {
+    hideLoading();
+    err.textContent='Error: '+e.message; err.classList.add('show');
+  }
+}
+
+async function activateApp(username, displayName) {
+  currentUser = username;
+  hide('loginScreen');
+  showLoading('Loading projects…');
+  try {
+    // Pre-load projects so sidebar is ready
+    await reloadProjects();
+    hideLoading();
+    show('appScreen');
+    document.getElementById('pmAvatar').textContent = displayName.charAt(0).toUpperCase();
+    document.getElementById('pmName').textContent   = displayName;
+    renderProject();
+  } catch(e) {
+    hideLoading();
+    showLogin();
+  }
+}
+
+async function doLogout() {
+  currentUser = null; currentProjectId = null;
+  localStorage.removeItem(LS_SESSION);
+  hide('appScreen'); showLogin();
+}
+
+// ═══════════════════════════════════════════════════
+//  PROJECT DATA
+// ═══════════════════════════════════════════════════
+let cachedProjects = {}; // id → project
+
+async function reloadProjects() {
+  const data = await fbGet(`users/${currentUser}/projects`);
+  cachedProjects = data || {};
+}
+
+function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+function defaultProject(name, desc, goLiveTarget) {
+  return {
+    id: uid(), name, desc,
+    pm: document.getElementById('pmName')?.textContent || '',
+    updated: new Date().toISOString().slice(0,10),
+    goLiveTarget: goLiveTarget||'',
+    logo: null,
+    pipelines: PDEFS.map(p => ({
+      key:p.key, status:'not-started',
+      configStart:'', uat:'', goLive:'',
+      owner:'', stakeholder:'',
+      checks: p.checks.map(t => ({ text:t, done:false })),
+      notes:''
+    }))
+  };
+}
+
+// Debounced save — fires 600ms after last change
+function scheduleSave() {
+  clearTimeout(saveDebounceTimer);
+  saveDebounceTimer = setTimeout(async () => {
+    const proj = getProject(); if(!proj) return;
+    try {
+      await fbSet(`users/${currentUser}/projects/${proj.id}`, proj);
+      cachedProjects[proj.id] = JSON.parse(JSON.stringify(proj));
+      showToast('✓  Saved to cloud');
+    } catch(e) {
+      showToast('⚠  Save failed — check connection', true);
+    }
+  }, 600);
+}
+
+// ═══════════════════════════════════════════════════
+//  SIDEBAR
+// ═══════════════════════════════════════════════════
+function renderSidebar() {
+  const list  = document.getElementById('projectList');
+  const projs = Object.values(cachedProjects);
+  list.innerHTML = '';
+  if (!projs.length) {
+    list.innerHTML='<div style="padding:10px 18px;font-size:12px;color:var(--muted);font-style:italic;">No projects yet</div>';
+    return;
+  }
+  projs.sort((a,b) => (b.updated||'').localeCompare(a.updated||''));
+  projs.forEach(p => {
+    const div = document.createElement('div');
+    div.className='project-item'+(p.id===currentProjectId?' active':'');
+    div.innerHTML=`<div class="proj-dot"></div><div class="proj-info"><div class="proj-name">${esc(p.name||'Untitled')}</div><div class="proj-meta">${p.goLiveTarget||p.updated||'—'}</div></div><button class="proj-del" data-id="${p.id}" title="Delete">✕</button>`;
+    div.querySelector('.proj-del').addEventListener('click', e => { e.stopPropagation(); deleteProject(p.id); });
+    div.addEventListener('click', () => selectProject(p.id));
+    list.appendChild(div);
+  });
+}
+
+function selectProject(id) { currentProjectId=id; renderSidebar(); renderProject(); }
+
+async function deleteProject(id) {
+  if (!confirm('Delete this project permanently?')) return;
+  try {
+    await fbDelete(`users/${currentUser}/projects/${id}`);
+    delete cachedProjects[id];
+    if (currentProjectId===id) {
+      const ids = Object.keys(cachedProjects);
+      currentProjectId = ids.length ? ids[0] : null;
+    }
+    renderSidebar(); renderProject();
+    showToast('Project deleted');
+  } catch(e) { showToast('Delete failed', true); }
+}
+
+// ═══════════════════════════════════════════════════
+//  MODALS
+// ═══════════════════════════════════════════════════
+function openNewProj() {
+  document.getElementById('mpName').value='';
+  document.getElementById('mpDesc').value='';
+  document.getElementById('mpGL').value='';
+  document.getElementById('newProjModal').classList.add('open');
+  setTimeout(()=>document.getElementById('mpName').focus(),50);
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-ov').forEach(m => m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); }));
+document.addEventListener('keydown', e => { if(e.key==='Escape') document.querySelectorAll('.modal-ov.open').forEach(m=>m.classList.remove('open')); });
+document.getElementById('mpName').addEventListener('keydown', e => { if(e.key==='Enter') createProject(); });
+
+async function createProject() {
+  const name = document.getElementById('mpName').value.trim()||'Untitled Project';
+  const desc = document.getElementById('mpDesc').value.trim();
+  const gl   = document.getElementById('mpGL').value;
+  const proj = defaultProject(name, desc, gl);
+  closeModal('newProjModal');
+  showLoading('Creating project…');
+  try {
+    await fbSet(`users/${currentUser}/projects/${proj.id}`, proj);
+    cachedProjects[proj.id] = proj;
+    currentProjectId = proj.id;
+    hideLoading();
+    renderSidebar(); renderProject();
+    showToast('✓  Project created');
+  } catch(e) {
+    hideLoading();
+    showToast('Could not create project', true);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  PROJECT VIEW
+// ═══════════════════════════════════════════════════
+function getProject() { return currentProjectId ? cachedProjects[currentProjectId] : null; }
+
+function renderProject() {
+  const empty = document.getElementById('emptyState');
+  const view  = document.getElementById('projectView');
+  const proj  = getProject();
+  if (!proj) { empty.style.display='flex'; view.style.display='none'; return; }
+  empty.style.display='none'; view.style.display='block';
+  document.getElementById('vTitle').value   = proj.name||'';
+  document.getElementById('vDesc').value    = proj.desc||'';
+  document.getElementById('vPM').value      = proj.pm||'';
+  document.getElementById('vUpdated').value = proj.updated||'';
+  document.getElementById('vGLT').value     = proj.goLiveTarget||'';
+  const li = document.getElementById('logoPreview');
+  const lr = document.getElementById('logoRm');
+  if (proj.logo) { li.src=proj.logo; li.classList.add('show'); lr.style.display='block'; }
+  else { li.src=''; li.classList.remove('show'); lr.style.display='none'; }
+  document.querySelectorAll('[data-tl]').forEach(inp => { inp.value=proj.pipelines[+inp.dataset.tl]?.goLive||''; });
+  recalcDays(); renderPipelines(proj); renderDashboard(proj);
+}
+
+function saveMeta(field, val) {
+  const proj=getProject(); if(!proj) return;
+  proj[field]=val;
+  if(field==='name'||field==='goLiveTarget') renderSidebar();
+  scheduleSave();
+}
+
+// ═══════════════════════════════════════════════════
+//  LOGO
+// ═══════════════════════════════════════════════════
+function handleLogo(input) {
+  const proj=getProject(); if(!proj) return;
+  const file=input.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=e=>{
+    proj.logo=e.target.result;
+    const li=document.getElementById('logoPreview');
+    const lr=document.getElementById('logoRm');
+    li.src=proj.logo; li.classList.add('show'); lr.style.display='block';
+    scheduleSave();
+  };
+  r.readAsDataURL(file); input.value='';
+}
+function removeLogo() {
+  const proj=getProject(); if(!proj) return;
+  proj.logo=null;
+  document.getElementById('logoPreview').classList.remove('show');
+  document.getElementById('logoPreview').src='';
+  document.getElementById('logoRm').style.display='none';
+  scheduleSave();
+}
+
+// ═══════════════════════════════════════════════════
+//  DAYS TO GO-LIVE
+// ═══════════════════════════════════════════════════
+function recalcDays() {
+  const proj=getProject();
+  const badge=document.getElementById('daysBadge');
+  const cnt=document.getElementById('daysCount');
+  if(!proj||!proj.goLiveTarget){badge.style.display='none';return;}
+  const diff=Math.ceil((new Date(proj.goLiveTarget)-new Date())/(864e5));
+  badge.style.display='flex';
+  if(diff>0){cnt.textContent=diff;badge.style.background='var(--p1l)';badge.style.color='var(--p1)';badge.style.borderColor='var(--p1m)';}
+  else if(diff===0){cnt.textContent='Today!';badge.style.background='var(--greenbg)';badge.style.color='var(--green)';badge.style.borderColor='var(--greenborder)';}
+  else{cnt.textContent=Math.abs(diff)+' overdue';badge.style.background='var(--redbg)';badge.style.color='var(--red)';badge.style.borderColor='var(--redborder)';}
+}
+
+// ═══════════════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════════════
+function renderDashboard(proj) {
+  const total=proj.pipelines.reduce((a,p)=>a+p.checks.length,0);
+  const done =proj.pipelines.reduce((a,p)=>a+p.checks.filter(c=>c.done).length,0);
+  const pct  =total>0?Math.round((done/total)*100):0;
+  const circ =2*Math.PI*13;
+  document.getElementById('donutFill').style.strokeDasharray=`${(pct/100)*circ} ${circ}`;
+  document.getElementById('donutPct').textContent=pct+'%';
+  document.getElementById('donutSub').textContent=`${done} of ${total} checks`;
+  const sts=proj.pipelines.map(p=>p.status);
+  let dc='var(--p1)';
+  if(sts.every(s=>s==='complete'))dc='var(--green)';
+  else if(sts.some(s=>s==='at-risk'))dc='var(--red)';
+  document.getElementById('donutFill').style.stroke=dc;
+  const container=document.getElementById('dashPipes');
+  container.innerHTML='';
+  const stMap={'not-started':{lbl:'Not Started',cls:'sns'},'in-progress':{lbl:'In Progress',cls:'sip'},'at-risk':{lbl:'At Risk',cls:'sar'},'complete':{lbl:'Complete',cls:'sdn'}};
+  PDEFS.forEach((def,i)=>{
+    const pd=proj.pipelines[i];
+    const pp=pd.checks.length>0?Math.round((pd.checks.filter(c=>c.done).length/pd.checks.length)*100):0;
+    const st=stMap[pd.status]||stMap['not-started'];
+    const d=document.createElement('div');
+    d.className=`dp ${def.dcls}`;
+    d.innerHTML=`<div class="dp-num">Pipeline ${def.num}</div><div class="dp-name">${def.name}</div><span class="dp-stat ${st.cls}">${st.lbl}</span><div class="dp-pt"><div class="dp-pf" style="width:${pp}%"></div></div><div class="dp-pct">${pp}% ready</div><div class="dp-date">${pd.goLive?`Go-Live: <span>${pd.goLive}</span>`:'<span style="color:var(--muted)">No date set</span>'}</div>`;
+    container.appendChild(d);
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  PIPELINE CARDS
+// ═══════════════════════════════════════════════════
+function renderPipelines(proj) {
+  const c=document.getElementById('pipelineCards');
+  c.innerHTML='';
+  PDEFS.forEach((def,i)=>{
+    const pd=proj.pipelines[i];
+    const pct=pd.checks.length>0?Math.round((pd.checks.filter(c=>c.done).length/pd.checks.length)*100):0;
+    const card=document.createElement('div');
+    card.className=`pc ${def.cls}`;
+    card.innerHTML=`
+      <div class="pc-hd">
+        <div><div class="pc-num">Pipeline ${def.num}</div><div class="pc-name">${def.name}</div><div class="pc-desc">${def.desc}</div></div>
+        <select class="ss" data-pidx="${i}" onchange="changeStatus(this)">
+          <option value="not-started" ${pd.status==='not-started'?'selected':''}>● Not Started</option>
+          <option value="in-progress" ${pd.status==='in-progress'?'selected':''}>● In Progress</option>
+          <option value="at-risk"     ${pd.status==='at-risk'?'selected':''}>● At Risk</option>
+          <option value="complete"    ${pd.status==='complete'?'selected':''}>● Complete</option>
+        </select>
+      </div>
+      <div class="pc-body">
+        <div class="dr3">
+          <div class="df"><label>Config Start</label><input type="date" data-pidx="${i}" data-field="configStart" value="${pd.configStart}" oninput="savePF(this)"></div>
+          <div class="df"><label>UAT / Testing</label><input type="date" data-pidx="${i}" data-field="uat" value="${pd.uat}" oninput="savePF(this)"></div>
+          <div class="df"><label>Go-Live Date</label><input type="date" data-pidx="${i}" data-field="goLive" value="${pd.goLive}" oninput="savePF(this);syncGLToTL(${i},this.value)"></div>
+        </div>
+        <div class="dr2">
+          <div class="df"><label>Pipeline Owner</label><input type="text" data-pidx="${i}" data-field="owner" value="${esc(pd.owner)}" placeholder="Name / Team" oninput="savePF(this)"></div>
+          <div class="df"><label>Stakeholder</label><input type="text" data-pidx="${i}" data-field="stakeholder" value="${esc(pd.stakeholder)}" placeholder="Name / Role" oninput="savePF(this)"></div>
+        </div>
+        <div id="cls_${i}"></div>
+        <div class="prog-wrap">
+          <div class="prog-lbl"><span>Readiness</span><span class="pct-lbl">${pct}%</span></div>
+          <div class="prog-track"><div class="prog-fill" style="width:${pct}%"></div></div>
+        </div>
+        <div class="df"><label>Notes / Blockers</label><textarea rows="2" data-pidx="${i}" data-field="notes" placeholder="Add dependencies, risks, or open items…" oninput="savePF(this)">${esc(pd.notes)}</textarea></div>
+      </div>`;
+    applyStatus(card.querySelector('select'), pd.status);
+    c.appendChild(card);
+    renderChecklist(i);
+  });
+}
+
+function renderChecklist(pidx) {
+  const proj=getProject(); if(!proj) return;
+  const pd=proj.pipelines[pidx];
+  const sec=document.getElementById(`cls_${pidx}`); if(!sec) return;
+  sec.innerHTML=`
+    <div class="cl-head">
+      <span class="cl-title">Pre Go-Live Checklist</span>
+      <button class="cl-add-btn" onclick="showAddCL(${pidx})">+ Add item</button>
+    </div>
+    <div id="cli_${pidx}">
+      ${pd.checks.map((c,ci)=>`
+        <div class="cl-item${c.done?' done':''}" id="ci_${pidx}_${ci}">
+          <input type="checkbox" ${c.done?'checked':''} onchange="toggleCheck(${pidx},${ci},this)">
+          <span class="cl-text">${esc(c.text)}</span>
+          <button class="cl-del" onclick="delCheck(${pidx},${ci})" title="Remove">✕</button>
+        </div>`).join('')}
+    </div>
+    <div class="cl-add-row" id="cla_${pidx}" style="display:none">
+      <input class="cl-add-inp" id="clai_${pidx}" type="text" placeholder="New checklist item…" onkeydown="if(event.key==='Enter')addCheck(${pidx})">
+      <button class="cl-ok" onclick="addCheck(${pidx})">Add</button>
+      <button class="cl-no" onclick="cancelCL(${pidx})">Cancel</button>
+    </div>`;
+}
+
+function showAddCL(i){document.getElementById(`cla_${i}`).style.display='flex';document.getElementById(`clai_${i}`).focus();}
+function cancelCL(i){document.getElementById(`cla_${i}`).style.display='none';document.getElementById(`clai_${i}`).value='';}
+
+function addCheck(pidx) {
+  const inp=document.getElementById(`clai_${pidx}`);
+  const text=inp.value.trim(); if(!text) return;
+  const proj=getProject(); if(!proj) return;
+  proj.pipelines[pidx].checks.push({text,done:false});
+  inp.value=''; cancelCL(pidx);
+  renderChecklist(pidx); updateProg(pidx); renderDashboard(proj);
+  scheduleSave();
+}
+
+function delCheck(pidx,cidx) {
+  const proj=getProject(); if(!proj) return;
+  proj.pipelines[pidx].checks.splice(cidx,1);
+  renderChecklist(pidx); updateProg(pidx); renderDashboard(proj);
+  scheduleSave();
+}
+
+function toggleCheck(pidx,cidx,cb) {
+  const proj=getProject(); if(!proj) return;
+  proj.pipelines[pidx].checks[cidx].done=cb.checked;
+  const item=document.getElementById(`ci_${pidx}_${cidx}`);
+  if(item) cb.checked?item.classList.add('done'):item.classList.remove('done');
+  updateProg(pidx); renderDashboard(proj);
+  scheduleSave();
+}
+
+function updateProg(pidx) {
+  const proj=getProject(); if(!proj) return;
+  const pd=proj.pipelines[pidx];
+  const pct=pd.checks.length>0?Math.round((pd.checks.filter(c=>c.done).length/pd.checks.length)*100):0;
+  const cards=document.querySelectorAll('.pc');
+  const card=cards[pidx]; if(!card) return;
+  const pf=card.querySelector('.prog-fill'); if(pf) pf.style.width=pct+'%';
+  const pl=card.querySelector('.pct-lbl'); if(pl) pl.textContent=pct+'%';
+}
+
+function savePF(inp) {
+  const proj=getProject(); if(!proj) return;
+  proj.pipelines[+inp.dataset.pidx][inp.dataset.field]=inp.value;
+  scheduleSave();
+}
+
+function changeStatus(sel) {
+  const proj=getProject(); if(!proj) return;
+  proj.pipelines[+sel.dataset.pidx].status=sel.value;
+  applyStatus(sel,sel.value); renderDashboard(proj);
+  scheduleSave();
+}
+
+function applyStatus(sel,val) {
+  const m={'not-started':'sns','in-progress':'sip','at-risk':'sar','complete':'sdn'};
+  sel.className='ss '+(m[val]||'sns');
+}
+
+function syncTL(inp) {
+  const proj=getProject(); if(!proj) return;
+  const idx=+inp.dataset.tl;
+  proj.pipelines[idx].goLive=inp.value;
+  document.querySelectorAll('[data-field="goLive"]').forEach(i=>{if(+i.dataset.pidx===idx)i.value=inp.value;});
+  renderDashboard(proj); scheduleSave();
+}
+function syncGLToTL(idx,val) {
+  document.querySelectorAll('[data-tl]').forEach(i=>{if(+i.dataset.tl===idx)i.value=val;});
+  renderDashboard(getProject());
+}
+
+// ═══════════════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════════════
+function show(id){document.getElementById(id).style.display='flex';}
+function hide(id){document.getElementById(id).style.display='none';}
+function showLogin(){document.getElementById('loginScreen').style.display='flex';}
+function showLoading(msg){
+  document.getElementById('loadingScreen').style.display='flex';
+  document.getElementById('loadingMsg').textContent=msg||'Loading…';
+}
+function hideLoading(){document.getElementById('loadingScreen').style.display='none';}
+
+let toastTimer=null;
+function showToast(msg,err=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.style.background=err?'#7f1d1d':'#111827';
+  t.style.opacity='1';
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.style.opacity='0',1800);
+}
+
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Keyboard shortcuts for auth
+document.getElementById('lPass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+document.getElementById('rPass').addEventListener('keydown',e=>{if(e.key==='Enter')doRegister();});
+
+// ═══════════════════════════════════════════════════
+//  INIT — Check saved config & session on load
+// ═══════════════════════════════════════════════════
+(async function init() {
+  // FB is already set as a constant above — go straight to session check
+
+  // Check for saved session
+  let session = null;
+  try { const s=localStorage.getItem(LS_SESSION); if(s) session=JSON.parse(s); } catch(e){}
+
+  if (session && session.username) {
+    // Try to auto-login
+    showLoading('Restoring session…');
+    try {
+      const userData = await fbGet(`users/${session.username}`);
+      if (userData) {
+        await activateApp(session.username, userData.displayName);
+        return;
+      }
+    } catch(e) {}
+    hideLoading();
+  }
+
+  showLogin();
+})();
+</script>
+</body>
+</html>
