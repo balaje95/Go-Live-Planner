@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zuper · Pipeline Go-Live Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#f4f5f7; --surface:#fff; --surface2:#f8f9fb; --surface3:#f0f2f5;
+  --border:#e4e6eb; --border2:#d0d4dc;
+  --text:#111827; --sub:#6b7280; --muted:#9ca3af;
+  --p1:#2563eb; --p1l:#eff6ff; --p1m:#bfdbfe;
+  --p2:#059669; --p2l:#ecfdf5; --p2m:#a7f3d0;
+  --p3:#d97706; --p3l:#fffbeb; --p3m:#fde68a;
+  --p4:#7c3aed; --p4l:#f5f3ff; --p4m:#ddd6fe;
+  --red:#dc2626; --redbg:#fef2f2; --redborder:#fecaca;
+  --yellow:#d97706; --yellowbg:#fffbeb; --yellowborder:#fde68a;
+  --green:#059669; --greenbg:#ecfdf5; --greenborder:#a7f3d0;
+  --shadow:0 1px 3px rgba(0,0,0,0.07),0 4px 12px rgba(0,0,0,0.05);
+  --shadow-lg:0 8px 32px rgba(0,0,0,0.12);
+}
+
+body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; font-size:14px; min-height:100vh; }
+
+/* ══ LOGIN SCREEN ══ */
+#loginScreen {
+  min-height:100vh; display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(135deg,#f0f4ff 0%,#fafafa 50%,#f0fdf4 100%);
+  padding:20px;
+}
+.login-wrap { width:100%; max-width:420px; }
+.login-brand { text-align:center; margin-bottom:32px; }
+.login-brand .eyebrow { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+.login-brand h1 { font-family:'Syne',sans-serif; font-size:28px; font-weight:800; color:var(--text); }
+.login-brand h1 span { color:var(--p1); }
+.login-brand p { font-size:13px; color:var(--sub); margin-top:6px; }
+.login-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:32px; box-shadow:var(--shadow-lg); }
+.tab-row { display:flex; gap:0; margin-bottom:28px; background:var(--surface2); border-radius:10px; padding:4px; }
+.tab-btn { flex:1; padding:8px; border:none; background:none; border-radius:7px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:500; color:var(--sub); cursor:pointer; transition:all 0.15s; }
+.tab-btn.active { background:var(--surface); color:var(--text); box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+.form-field { display:flex; flex-direction:column; gap:5px; margin-bottom:14px; }
+.form-field label { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+.form-field input { background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:13px; padding:10px 14px; outline:none; width:100%; transition:border-color 0.2s; }
+.form-field input:focus { border-color:var(--p1); background:var(--surface); }
+.form-field input::placeholder { color:var(--muted); }
+.btn-primary { width:100%; padding:11px; background:var(--p1); color:#fff; border:none; border-radius:9px; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:500; cursor:pointer; transition:background 0.15s; margin-top:6px; }
+.btn-primary:hover { background:#1d4ed8; }
+.login-err { background:#fef2f2; border:1px solid #fecaca; color:#dc2626; border-radius:8px; padding:9px 12px; font-size:12px; margin-top:12px; display:none; }
+.login-err.show { display:block; }
+.demo-hint { margin-top:16px; text-align:center; font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); line-height:1.7; }
+.demo-hint strong { color:var(--sub); }
+
+/* ══ APP LAYOUT ══ */
+#appScreen { display:none; min-height:100vh; }
+.layout { display:flex; min-height:100vh; }
+
+/* SIDEBAR */
+.sidebar { width:240px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; }
+.sidebar-brand { padding:18px 18px 14px; border-bottom:1px solid var(--border); }
+.brand-eye { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
+.brand-title { font-family:'Syne',sans-serif; font-size:14px; font-weight:800; color:var(--text); line-height:1.25; }
+.brand-title span { color:var(--p1); }
+
+.pm-card { margin:12px; padding:10px 12px; background:var(--p1l); border:1px solid var(--p1m); border-radius:10px; display:flex; align-items:center; gap:10px; }
+.pm-avatar { width:32px; height:32px; border-radius:50%; background:var(--p1); display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-size:13px; font-weight:700; color:#fff; flex-shrink:0; }
+.pm-info { flex:1; min-width:0; }
+.pm-name { font-size:12px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pm-role { font-family:'DM Mono',monospace; font-size:9px; color:var(--p1); text-transform:uppercase; letter-spacing:0.1em; }
+.pm-logout { background:none; border:none; cursor:pointer; color:var(--muted); font-size:11px; padding:2px; transition:color 0.15s; }
+.pm-logout:hover { color:var(--red); }
+
+.sidebar-sec { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); padding:12px 18px 6px; }
+.project-list { flex:1; overflow-y:auto; }
+.project-item { display:flex; align-items:center; gap:9px; padding:8px 16px; cursor:pointer; border-left:3px solid transparent; transition:all 0.15s; }
+.project-item:hover { background:var(--surface2); }
+.project-item.active { background:var(--p1l); border-left-color:var(--p1); }
+.proj-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; background:var(--border2); }
+.project-item.active .proj-dot { background:var(--p1); }
+.proj-info { flex:1; min-width:0; }
+.proj-name { font-size:12px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.project-item.active .proj-name { color:var(--p1); }
+.proj-meta { font-family:'DM Mono',monospace; font-size:9px; color:var(--muted); margin-top:1px; }
+.proj-del { opacity:0; background:none; border:none; cursor:pointer; color:var(--muted); font-size:12px; padding:2px 4px; border-radius:3px; transition:all 0.15s; }
+.project-item:hover .proj-del { opacity:1; }
+.proj-del:hover { background:#fee2e2; color:var(--red); }
+
+.add-proj-btn { margin:10px 14px; padding:8px 12px; background:var(--p1); color:#fff; border:none; border-radius:8px; font-family:'DM Sans',sans-serif; font-size:12px; font-weight:500; cursor:pointer; width:calc(100%-28px); display:flex; align-items:center; gap:7px; transition:background 0.15s; }
+.add-proj-btn:hover { background:#1d4ed8; }
+.sidebar-foot { padding:12px 18px; border-top:1px solid var(--border); font-family:'DM Mono',monospace; font-size:9px; color:var(--muted); }
+
+/* MAIN */
+.main { flex:1; overflow-y:auto; }
+
+/* EMPTY STATE */
+.empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; height:80vh; gap:14px; text-align:center; color:var(--muted); padding:20px; }
+.empty-icon { font-size:48px; }
+.empty-state h2 { font-family:'Syne',sans-serif; font-size:20px; font-weight:700; color:var(--sub); }
+.empty-state p { font-size:13px; max-width:260px; line-height:1.6; }
+
+/* PROJECT VIEW */
+#projectView { padding:28px 32px; }
+
+/* PROJECT HEADER */
+.proj-header { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-bottom:24px; padding-bottom:22px; border-bottom:1px solid var(--border); }
+.ph-left { display:flex; flex-direction:column; gap:6px; flex:1; min-width:0; }
+.ph-eyebrow { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:var(--muted); }
+.editable-title { font-family:'Syne',sans-serif; font-size:24px; font-weight:800; color:var(--text); border:none; background:none; outline:none; width:100%; max-width:440px; border-bottom:2px dashed transparent; transition:border-color 0.2s; padding:2px 0; }
+.editable-title:hover,.editable-title:focus { border-bottom-color:var(--border2); }
+.editable-sub { font-size:13px; color:var(--sub); border:none; background:none; outline:none; width:100%; max-width:440px; border-bottom:1px dashed transparent; transition:border-color 0.2s; padding:2px 0; font-family:'DM Sans',sans-serif; }
+.editable-sub:hover,.editable-sub:focus { border-bottom-color:var(--border2); }
+
+.ph-right { display:flex; flex-direction:column; align-items:flex-end; gap:8px; flex-shrink:0; }
+.badge-proposed { display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; font-weight:500; background:var(--p1l); color:var(--p1); border:1px solid var(--p1m); }
+
+/* Logo upload */
+.logo-area { display:flex; align-items:center; gap:10px; }
+.logo-preview { width:56px; height:40px; border:1px solid var(--border); border-radius:6px; object-fit:contain; background:var(--surface2); display:none; padding:3px; }
+.logo-preview.show { display:block; }
+.logo-upload-btn { display:flex; align-items:center; gap:6px; padding:5px 10px; background:var(--surface2); border:1px solid var(--border); border-radius:7px; font-size:11px; color:var(--sub); cursor:pointer; transition:all 0.15s; white-space:nowrap; }
+.logo-upload-btn:hover { background:var(--surface3); border-color:var(--border2); }
+.logo-upload-btn input { display:none; }
+.logo-remove { background:none; border:none; cursor:pointer; color:var(--muted); font-size:12px; padding:2px 4px; border-radius:3px; }
+.logo-remove:hover { color:var(--red); }
+
+.hf { display:flex; align-items:center; gap:6px; font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); }
+.hf input[type="date"],.hf input[type="text"] { background:none; border:none; border-bottom:1px dashed var(--border2); color:var(--text); font-family:'DM Mono',monospace; font-size:11px; outline:none; padding:1px 4px; width:130px; }
+.golive-hf input { color:var(--p1); font-weight:500; }
+
+/* ══ MINI DASHBOARD ══ */
+.dashboard { margin-bottom:22px; }
+.dash-title-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+.sec-label { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:var(--muted); }
+
+.dash-grid { display:grid; grid-template-columns:200px 1fr; gap:14px; }
+
+/* donut card */
+.donut-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; }
+.donut-wrap { position:relative; width:100px; height:100px; }
+.donut-svg { width:100%; height:100%; transform:rotate(-90deg); }
+.donut-bg { fill:none; stroke:var(--border); stroke-width:10; }
+.donut-fill { fill:none; stroke:var(--p1); stroke-width:10; stroke-linecap:round; transition:stroke-dashoffset 0.5s ease; }
+.donut-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.donut-pct { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:var(--text); line-height:1; }
+.donut-lbl { font-family:'DM Mono',monospace; font-size:9px; color:var(--muted); margin-top:2px; }
+.donut-card-label { font-family:'Syne',sans-serif; font-size:12px; font-weight:700; color:var(--text); text-align:center; }
+.donut-card-sub { font-family:'DM Mono',monospace; font-size:9px; color:var(--muted); text-align:center; }
+
+/* pipeline mini cards */
+.dash-pipes { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; align-content:start; }
+.dash-pipe { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; position:relative; overflow:hidden; }
+.dash-pipe::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+.dash-pipe.dp1::before { background:var(--p1); }
+.dash-pipe.dp2::before { background:var(--p2); }
+.dash-pipe.dp3::before { background:var(--p3); }
+.dash-pipe.dp4::before { background:var(--p4); }
+.dp-num { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:3px; }
+.dp1 .dp-num { color:var(--p1); } .dp2 .dp-num { color:var(--p2); } .dp3 .dp-num { color:var(--p3); } .dp4 .dp-num { color:var(--p4); }
+.dp-name { font-family:'Syne',sans-serif; font-size:12px; font-weight:700; color:var(--text); margin-bottom:8px; }
+.dp-stat { display:inline-flex; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:500; margin-bottom:8px; }
+.dp-prog-track { height:4px; background:var(--border); border-radius:99px; overflow:hidden; margin-bottom:5px; }
+.dp-prog-fill { height:100%; border-radius:99px; transition:width 0.4s ease; }
+.dp1 .dp-prog-fill { background:var(--p1); } .dp2 .dp-prog-fill { background:var(--p2); }
+.dp3 .dp-prog-fill { background:var(--p3); } .dp4 .dp-prog-fill { background:var(--p4); }
+.dp-pct { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); }
+.dp-dates { margin-top:6px; font-family:'DM Mono',monospace; font-size:9px; color:var(--muted); line-height:1.7; }
+.dp-dates span { color:var(--text); }
+
+/* days-to badge */
+.days-badge { display:flex; align-items:center; gap:6px; padding:6px 12px; background:var(--p1l); border:1px solid var(--p1m); border-radius:8px; font-family:'DM Mono',monospace; font-size:11px; color:var(--p1); }
+.days-badge strong { font-size:16px; font-family:'Syne',sans-serif; font-weight:800; }
+
+/* ══ TIMELINE ══ */
+.timeline-section { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px 24px; margin-bottom:22px; }
+.timeline { display:flex; align-items:flex-start; }
+.tl-item { flex:1; display:flex; flex-direction:column; align-items:center; position:relative; }
+.tl-item:not(:last-child)::after { content:''; position:absolute; top:14px; left:50%; width:100%; height:2px; background:var(--border); }
+.tl-dot { width:28px; height:28px; border-radius:50%; border:2px solid var(--border2); background:var(--surface2); display:flex; align-items:center; justify-content:center; font-family:'DM Mono',monospace; font-size:10px; font-weight:500; color:var(--sub); z-index:1; position:relative; }
+.tl-item.tp1 .tl-dot{border-color:var(--p1);color:var(--p1);background:var(--p1l);}
+.tl-item.tp2 .tl-dot{border-color:var(--p2);color:var(--p2);background:var(--p2l);}
+.tl-item.tp3 .tl-dot{border-color:var(--p3);color:var(--p3);background:var(--p3l);}
+.tl-item.tp4 .tl-dot{border-color:var(--p4);color:var(--p4);background:var(--p4l);}
+.tl-name { margin-top:9px; font-family:'Syne',sans-serif; font-size:11px; font-weight:700; color:var(--text); text-align:center; }
+.tl-date-wrap { margin-top:5px; }
+.tl-date-wrap input[type="date"] { background:var(--surface2); border:1px solid var(--border); border-radius:6px; color:var(--text); font-family:'DM Mono',monospace; font-size:10px; padding:4px 7px; outline:none; width:116px; cursor:pointer; }
+.tl-item.tp1 .tl-date-wrap input:focus{border-color:var(--p1);}
+.tl-item.tp2 .tl-date-wrap input:focus{border-color:var(--p2);}
+.tl-item.tp3 .tl-date-wrap input:focus{border-color:var(--p3);}
+.tl-item.tp4 .tl-date-wrap input:focus{border-color:var(--p4);}
+
+/* ══ PIPELINE CARDS ══ */
+.pipelines { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:24px; }
+.pipeline-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.pipeline-card.pp1{border-top:3px solid var(--p1);}
+.pipeline-card.pp2{border-top:3px solid var(--p2);}
+.pipeline-card.pp3{border-top:3px solid var(--p3);}
+.pipeline-card.pp4{border-top:3px solid var(--p4);}
+.pc-head { padding:14px 18px 12px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+.pc-num { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.14em; text-transform:uppercase; margin-bottom:2px; }
+.pp1 .pc-num{color:var(--p1);}.pp2 .pc-num{color:var(--p2);}.pp3 .pc-num{color:var(--p3);}.pp4 .pc-num{color:var(--p4);}
+.pc-name { font-family:'Syne',sans-serif; font-size:15px; font-weight:700; color:var(--text); }
+.pc-desc { font-size:11px; color:var(--muted); margin-top:1px; max-width:200px; }
+
+.status-select { border:1px solid var(--border); border-radius:20px; padding:4px 10px; font-family:'DM Sans',sans-serif; font-size:11px; font-weight:500; cursor:pointer; outline:none; appearance:none; flex-shrink:0; }
+
+.pc-body { padding:14px 18px; display:flex; flex-direction:column; gap:12px; }
+.date-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:7px; }
+.meta-row { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+.df { display:flex; flex-direction:column; gap:4px; }
+.df label { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+.df input[type="date"],.df input[type="text"],.df textarea {
+  background:var(--surface2); border:1px solid var(--border); border-radius:6px;
+  color:var(--text); font-family:'DM Sans',sans-serif; font-size:12px;
+  padding:6px 9px; outline:none; width:100%; transition:border-color 0.2s; resize:none;
+}
+.df input::placeholder,.df textarea::placeholder { color:var(--muted); }
+.pp1 .df input:focus,.pp1 .df textarea:focus{border-color:var(--p1);}
+.pp2 .df input:focus,.pp2 .df textarea:focus{border-color:var(--p2);}
+.pp3 .df input:focus,.pp3 .df textarea:focus{border-color:var(--p3);}
+.pp4 .df input:focus,.pp4 .df textarea:focus{border-color:var(--p4);}
+
+/* CHECKLIST */
+.cl-section {}
+.cl-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+.cl-title { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+.cl-add-btn { display:flex; align-items:center; gap:4px; font-size:11px; color:var(--p1); background:none; border:none; cursor:pointer; font-family:'DM Sans',sans-serif; font-weight:500; padding:2px 0; transition:opacity 0.15s; }
+.cl-add-btn:hover { opacity:0.7; }
+.cl-items-wrap { display:flex; flex-direction:column; gap:3px; }
+.cl-item { display:flex; align-items:center; gap:7px; font-size:12px; color:var(--text); padding:5px 8px; border-radius:6px; border:1px solid var(--border); background:var(--surface2); cursor:default; }
+.cl-item:hover { background:var(--surface3); }
+.cl-item input[type="checkbox"] { width:13px; height:13px; flex-shrink:0; cursor:pointer; }
+.pp1 .cl-item input{accent-color:var(--p1);}.pp2 .cl-item input{accent-color:var(--p2);}
+.pp3 .cl-item input{accent-color:var(--p3);}.pp4 .cl-item input{accent-color:var(--p4);}
+.cl-item-text { flex:1; cursor:pointer; }
+.cl-item.done .cl-item-text { text-decoration:line-through; color:var(--muted); }
+.cl-item-del { opacity:0; background:none; border:none; cursor:pointer; color:var(--muted); font-size:13px; padding:0 2px; transition:all 0.15s; flex-shrink:0; }
+.cl-item:hover .cl-item-del { opacity:1; }
+.cl-item-del:hover { color:var(--red); }
+
+/* add checklist item inline */
+.cl-add-row { display:flex; gap:6px; margin-top:4px; }
+.cl-add-input { flex:1; background:var(--surface2); border:1px dashed var(--p1); border-radius:6px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:12px; padding:5px 9px; outline:none; }
+.cl-add-confirm { background:var(--p1); color:#fff; border:none; border-radius:6px; padding:5px 10px; font-size:11px; cursor:pointer; font-family:'DM Sans',sans-serif; }
+.cl-add-cancel { background:none; border:1px solid var(--border); border-radius:6px; padding:5px 8px; font-size:11px; cursor:pointer; color:var(--sub); }
+
+/* progress */
+.prog-wrap { display:flex; flex-direction:column; gap:4px; }
+.prog-lbl { display:flex; justify-content:space-between; font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); }
+.prog-track { height:5px; background:var(--border); border-radius:99px; overflow:hidden; }
+.prog-fill { height:100%; border-radius:99px; transition:width 0.35s ease; }
+.pp1 .prog-fill{background:var(--p1);}.pp2 .prog-fill{background:var(--p2);}
+.pp3 .prog-fill{background:var(--p3);}.pp4 .prog-fill{background:var(--p4);}
+
+/* PAGE FOOTER */
+.page-footer { display:flex; justify-content:space-between; align-items:center; padding-top:18px; border-top:1px solid var(--border); }
+.footer-txt { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); }
+.footer-txt strong { color:var(--sub); }
+.print-btn { padding:7px 16px; border-radius:8px; border:1px solid var(--border2); background:var(--surface); color:var(--text); font-family:'DM Mono',monospace; font-size:11px; cursor:pointer; transition:all 0.15s; }
+.print-btn:hover { background:var(--surface2); }
+
+/* MODAL */
+.modal-ov { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.2); z-index:200; align-items:center; justify-content:center; }
+.modal-ov.open { display:flex; }
+.modal { background:var(--surface); border-radius:14px; padding:26px; width:380px; box-shadow:var(--shadow-lg); border:1px solid var(--border); }
+.modal h2 { font-family:'Syne',sans-serif; font-size:17px; font-weight:800; margin-bottom:16px; }
+.mf { display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }
+.mf label { font-family:'DM Mono',monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); }
+.mf input,.mf textarea { background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:13px; padding:8px 12px; outline:none; width:100%; resize:none; }
+.mf input:focus,.mf textarea:focus { border-color:var(--p1); }
+.mf input::placeholder,.mf textarea::placeholder { color:var(--muted); }
+.modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; }
+.btn-cancel { padding:7px 16px; border:1px solid var(--border); border-radius:8px; background:none; color:var(--sub); font-family:'DM Sans',sans-serif; font-size:13px; cursor:pointer; }
+.btn-confirm { padding:7px 18px; border:none; border-radius:8px; background:var(--p1); color:#fff; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:500; cursor:pointer; }
+.btn-confirm:hover { background:#1d4ed8; }
+
+/* Status styles helper */
+.ss-ns  { background:#f3f4f6; color:#6b7280; border-color:#d1d5db; }
+.ss-ip  { background:var(--yellowbg); color:var(--yellow); border-color:var(--yellowborder); }
+.ss-ar  { background:var(--redbg); color:var(--red); border-color:var(--redborder); }
+.ss-done{ background:var(--greenbg); color:var(--green); border-color:var(--greenborder); }
+
+@media print {
+  .sidebar,.add-proj-btn,.print-btn,.modal-ov,.pm-logout { display:none !important; }
+  #projectView { padding:16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ LOGIN SCREEN ══════════════ -->
+<div id="loginScreen">
+  <div class="login-wrap">
+    <div class="login-brand">
+      <div class="eyebrow">Zuper · Roofing Vertical</div>
+      <h1>Pipeline <span>Go-Live</span> Tracker</h1>
+      <p>Sign in to manage your customer deployments</p>
+    </div>
+    <div class="login-card">
+      <div class="tab-row">
+        <button class="tab-btn active" id="tabLogin" onclick="switchTab('login')">Sign In</button>
+        <button class="tab-btn" id="tabRegister" onclick="switchTab('register')">Register</button>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <div id="loginForm">
+        <div class="form-field"><label>Username</label><input type="text" id="loginUser" placeholder="your username" autocomplete="username"></div>
+        <div class="form-field"><label>Password</label><input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"></div>
+        <button class="btn-primary" onclick="doLogin()">Sign In →</button>
+        <div class="login-err" id="loginErr">Incorrect username or password.</div>
+        <div class="demo-hint">Demo accounts: <strong>alice / pass123</strong> &nbsp;·&nbsp; <strong>bob / pass456</strong></div>
+      </div>
+
+      <!-- REGISTER FORM -->
+      <div id="registerForm" style="display:none;">
+        <div class="form-field"><label>Full Name</label><input type="text" id="regName" placeholder="Your full name"></div>
+        <div class="form-field"><label>Username</label><input type="text" id="regUser" placeholder="choose a username"></div>
+        <div class="form-field"><label>Password</label><input type="password" id="regPass" placeholder="create a password"></div>
+        <button class="btn-primary" onclick="doRegister()">Create Account →</button>
+        <div class="login-err" id="registerErr">Username already taken.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ APP SCREEN ══════════════ -->
+<div id="appScreen">
+  <div class="layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-eye">Zuper · Roofing Vertical</div>
+        <div class="brand-title">Pipeline <span>Go-Live</span><br>Tracker</div>
+      </div>
+
+      <div class="pm-card">
+        <div class="pm-avatar" id="pmAvatar">A</div>
+        <div class="pm-info">
+          <div class="pm-name" id="pmName">PM Name</div>
+          <div class="pm-role">Project Manager</div>
+        </div>
+        <button class="pm-logout" title="Sign out" onclick="doLogout()">⏻</button>
+      </div>
+
+      <div class="sidebar-sec">Customer Projects</div>
+      <div class="project-list" id="projectList"></div>
+
+      <button class="add-proj-btn" onclick="openNewProjectModal()" style="margin:10px 14px;width:calc(100% - 28px);">
+        <span style="font-size:16px;font-weight:300;line-height:1">+</span> New Customer Project
+      </button>
+      <div class="sidebar-foot">4 Pipelines · Single Job Architecture</div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">📋</div>
+        <h2>No project selected</h2>
+        <p>Create a new customer project to start tracking pipeline go-live dates.</p>
+        <button class="btn-confirm" style="margin-top:4px" onclick="openNewProjectModal()">+ New Customer Project</button>
+      </div>
+
+      <div id="projectView" style="display:none;">
+
+        <!-- PROJECT HEADER -->
+        <div class="proj-header">
+          <div class="ph-left">
+            <div class="ph-eyebrow">Single Job Architecture · Go-Live Tracker</div>
+            <input class="editable-title" id="vTitle" type="text" placeholder="Customer / Project Name" oninput="saveMeta('name',this.value)">
+            <input class="editable-sub" id="vDesc" type="text" placeholder="Short description or project scope…" oninput="saveMeta('desc',this.value)">
+          </div>
+          <div class="ph-right">
+            <!-- Logo -->
+            <div class="logo-area">
+              <img id="logoPreview" class="logo-preview" src="" alt="Customer Logo">
+              <label class="logo-upload-btn">
+                📎 Upload Logo
+                <input type="file" accept="image/*" onchange="handleLogoUpload(this)">
+              </label>
+              <button class="logo-remove" id="logoRemoveBtn" style="display:none" onclick="removeLogo()" title="Remove logo">✕</button>
+            </div>
+            <span class="badge-proposed">Proposed Model</span>
+            <div class="hf">Updated: <input type="date" id="vUpdated" oninput="saveMeta('updated',this.value)"></div>
+            <div class="hf golive-hf">🎯 Go-Live Target: <input type="date" id="vGoLiveTarget" oninput="saveMeta('goLiveTarget',this.value);recalcDays()"></div>
+            <div class="hf">PM: <input type="text" id="vPM" placeholder="PM Name" oninput="saveMeta('pm',this.value)"></div>
+          </div>
+        </div>
+
+        <!-- MINI DASHBOARD -->
+        <div class="dashboard">
+          <div class="dash-title-row">
+            <span class="sec-label">Project Dashboard</span>
+            <div class="days-badge" id="daysBadge" style="display:none">
+              🗓 <strong id="daysCount">—</strong> days to go-live
+            </div>
+          </div>
+          <div class="dash-grid">
+            <!-- Donut -->
+            <div class="donut-card">
+              <div class="donut-wrap">
+                <svg class="donut-svg" viewBox="0 0 36 36">
+                  <circle class="donut-bg" cx="18" cy="18" r="13"/>
+                  <circle class="donut-fill" id="donutFill" cx="18" cy="18" r="13" stroke-dasharray="0 100"/>
+                </svg>
+                <div class="donut-center">
+                  <div class="donut-pct" id="donutPct">0%</div>
+                  <div class="donut-lbl">overall</div>
+                </div>
+              </div>
+              <div class="donut-card-label">Readiness</div>
+              <div class="donut-card-sub" id="donutSub">0 of 20 checks done</div>
+            </div>
+            <!-- Pipeline mini cards -->
+            <div class="dash-pipes" id="dashPipes"></div>
+          </div>
+        </div>
+
+        <!-- TIMELINE -->
+        <div class="timeline-section">
+          <div class="sec-label" style="margin-bottom:18px">Deployment Timeline — Go-Live Milestones</div>
+          <div class="timeline">
+            <div class="tl-item tp1"><div class="tl-dot">01</div><div class="tl-name">Lead Qual.</div><div class="tl-date-wrap"><input type="date" data-tl="0" oninput="syncTL(this)"></div></div>
+            <div class="tl-item tp2"><div class="tl-dot">02</div><div class="tl-name">Inspection</div><div class="tl-date-wrap"><input type="date" data-tl="1" oninput="syncTL(this)"></div></div>
+            <div class="tl-item tp3"><div class="tl-dot">03</div><div class="tl-name">Production</div><div class="tl-date-wrap"><input type="date" data-tl="2" oninput="syncTL(this)"></div></div>
+            <div class="tl-item tp4"><div class="tl-dot">04</div><div class="tl-name">Revenue</div><div class="tl-date-wrap"><input type="date" data-tl="3" oninput="syncTL(this)"></div></div>
+          </div>
+        </div>
+
+        <!-- PIPELINE CARDS -->
+        <div class="pipelines" id="pipelineCards"></div>
+
+        <!-- FOOTER -->
+        <div class="page-footer">
+          <div class="footer-txt">Zuper · Roofing Vertical &nbsp;·&nbsp; <strong>One job object — all pipelines, all financials in one place.</strong></div>
+          <button class="print-btn" onclick="window.print()">⎙ Print / Export PDF</button>
+        </div>
+
+      </div><!-- /projectView -->
+    </main>
+  </div>
+</div>
+
+<!-- NEW PROJECT MODAL -->
+<div class="modal-ov" id="newProjModal">
+  <div class="modal">
+    <h2>New Customer Project</h2>
+    <div class="mf"><label>Customer / Project Name</label><input type="text" id="mpName" placeholder="e.g. Acme Roofing — Phase 1"></div>
+    <div class="mf"><label>Description</label><textarea rows="2" id="mpDesc" placeholder="Brief scope or deployment description…"></textarea></div>
+    <div class="mf"><label>Go-Live Target Date</label><input type="date" id="mpGoLive"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('newProjModal')">Cancel</button>
+      <button class="btn-confirm" onclick="createProject()">Create Project</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════
+//  DATA STORE
+// ══════════════════════════════════════
+const PIPELINE_DEFS = [
+  { key:'p1', cls:'pp1', dcls:'dp1', num:'01', name:'Lead Qualification', desc:'Qualify incoming leads before committing field resources',
+    defaultChecks:['Status flow configured (New Lead → Qualified → Cold Lead)','Auto-create job automation enabled','Checklist trigger → Inspection category tested','Attempt status reschedule follow-ups verified','UAT sign-off received'] },
+  { key:'p2', cls:'pp2', dcls:'dp2', num:'02', name:'Inspection', desc:'On-site inspection and signed proposal from customer',
+    defaultChecks:['Status flow configured (Scheduled → Won → Approved)','Proposal acceptance → line items auto-added to job','Deposit collection on proposal sign tested','Approval → next production category trigger verified','UAT sign-off received'] },
+  { key:'p3', cls:'pp3', dcls:'dp3', num:'03', name:'Production', desc:'Execute contracted work with customer sign-off',
+    defaultChecks:['All production categories configured (Roofing, Gutter, Siding, Repair)','Change orders → accepted quote line items auto-added','Closed → checklist determines next category logic tested','Sequential repeats for each production category verified','UAT sign-off received'] },
+  { key:'p4', cls:'pp4', dcls:'dp4', num:'04', name:'Revenue', desc:'Payment collection and revenue tracking',
+    defaultChecks:['Deposit auto-trigger at proposal signature configured','Final invoice → accepted quote at job close tested','Payment methods & partial payment config confirmed with SLT','Reminders and reporting views reviewed','UAT sign-off received'] }
+];
+
+// Seeded demo users
+let users = {
+  alice: { password:'pass123', displayName:'Alice Johnson', projects:[] },
+  bob:   { password:'pass456', displayName:'Bob Martinez',  projects:[] }
+};
+
+let currentUser = null;
+let currentProjectId = null;
+
+function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+function defaultProject(name, desc, goLiveTarget) {
+  return {
+    id: uid(), name, desc,
+    pm: currentUser ? users[currentUser].displayName : '',
+    updated: new Date().toISOString().slice(0,10),
+    goLiveTarget: goLiveTarget || '',
+    logo: null,
+    pipelines: PIPELINE_DEFS.map(p => ({
+      key: p.key, status: 'not-started',
+      configStart:'', uat:'', goLive:'',
+      owner:'', stakeholder:'',
+      checks: p.defaultChecks.map(t => ({ text:t, done:false })),
+      notes:''
+    }))
+  };
+}
+
+// ══════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════
+function switchTab(tab) {
+  document.getElementById('loginForm').style.display    = tab==='login'    ? '' : 'none';
+  document.getElementById('registerForm').style.display = tab==='register' ? '' : 'none';
+  document.getElementById('tabLogin').classList.toggle('active', tab==='login');
+  document.getElementById('tabRegister').classList.toggle('active', tab==='register');
+  document.getElementById('loginErr').classList.remove('show');
+  document.getElementById('registerErr').classList.remove('show');
+}
+
+function doLogin() {
+  const u = document.getElementById('loginUser').value.trim().toLowerCase();
+  const p = document.getElementById('loginPass').value;
+  if (users[u] && users[u].password === p) {
+    currentUser = u;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appScreen').style.display   = 'block';
+    document.getElementById('pmAvatar').textContent = users[u].displayName.charAt(0).toUpperCase();
+    document.getElementById('pmName').textContent   = users[u].displayName;
+    currentProjectId = null;
+    renderSidebar(); renderProject();
+  } else {
+    document.getElementById('loginErr').classList.add('show');
+  }
+}
+
+function doRegister() {
+  const name = document.getElementById('regName').value.trim();
+  const u    = document.getElementById('regUser').value.trim().toLowerCase();
+  const p    = document.getElementById('regPass').value;
+  if (!u || !p || !name) return;
+  if (users[u]) { document.getElementById('registerErr').textContent='Username already taken.'; document.getElementById('registerErr').classList.add('show'); return; }
+  users[u] = { password:p, displayName:name, projects:[] };
+  document.getElementById('registerErr').classList.remove('show');
+  switchTab('login');
+  document.getElementById('loginUser').value = u;
+  document.getElementById('loginPass').value = p;
+  doLogin();
+}
+
+function doLogout() {
+  currentUser = null; currentProjectId = null;
+  document.getElementById('appScreen').style.display   = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginUser').value='';
+  document.getElementById('loginPass').value='';
+}
+
+document.getElementById('loginPass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+// ══════════════════════════════════════
+//  SIDEBAR
+// ══════════════════════════════════════
+function userProjects() { return currentUser ? users[currentUser].projects : []; }
+
+function renderSidebar() {
+  const list = document.getElementById('projectList');
+  const projs = userProjects();
+  list.innerHTML = '';
+  if (!projs.length) {
+    list.innerHTML = '<div style="padding:10px 18px;font-size:12px;color:var(--muted);font-style:italic;">No projects yet</div>';
+    return;
+  }
+  projs.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'project-item' + (p.id===currentProjectId?' active':'');
+    div.innerHTML = `<div class="proj-dot"></div><div class="proj-info"><div class="proj-name">${p.name||'Untitled'}</div><div class="proj-meta">${p.goLiveTarget||p.updated||'—'}</div></div><button class="proj-del" data-id="${p.id}" title="Delete">✕</button>`;
+    div.querySelector('.proj-del').addEventListener('click', e => { e.stopPropagation(); deleteProject(p.id); });
+    div.addEventListener('click', () => selectProject(p.id));
+    list.appendChild(div);
+  });
+}
+
+function selectProject(id) { currentProjectId = id; renderSidebar(); renderProject(); }
+
+function deleteProject(id) {
+  if (!confirm('Delete this project?')) return;
+  users[currentUser].projects = users[currentUser].projects.filter(p=>p.id!==id);
+  if (currentProjectId===id) currentProjectId = userProjects().length ? userProjects()[0].id : null;
+  renderSidebar(); renderProject();
+}
+
+// ══════════════════════════════════════
+//  MODALS
+// ══════════════════════════════════════
+function openNewProjectModal() {
+  document.getElementById('mpName').value=''; document.getElementById('mpDesc').value=''; document.getElementById('mpGoLive').value='';
+  document.getElementById('newProjModal').classList.add('open');
+  setTimeout(()=>document.getElementById('mpName').focus(),50);
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-ov').forEach(ov => ov.addEventListener('click', e => { if(e.target===ov) ov.classList.remove('open'); }));
+document.addEventListener('keydown', e => { if(e.key==='Escape') document.querySelectorAll('.modal-ov.open').forEach(m=>m.classList.remove('open')); });
+document.getElementById('mpName').addEventListener('keydown', e => { if(e.key==='Enter') createProject(); });
+
+function createProject() {
+  const name = document.getElementById('mpName').value.trim() || 'Untitled Project';
+  const desc = document.getElementById('mpDesc').value.trim();
+  const gl   = document.getElementById('mpGoLive').value;
+  const proj = defaultProject(name, desc, gl);
+  users[currentUser].projects.push(proj);
+  currentProjectId = proj.id;
+  closeModal('newProjModal');
+  renderSidebar(); renderProject();
+}
+
+// ══════════════════════════════════════
+//  PROJECT VIEW
+// ══════════════════════════════════════
+function getProject() { return userProjects().find(p=>p.id===currentProjectId); }
+
+function renderProject() {
+  const empty = document.getElementById('emptyState');
+  const view  = document.getElementById('projectView');
+  const proj  = getProject();
+  if (!proj) { empty.style.display='flex'; view.style.display='none'; return; }
+  empty.style.display='none'; view.style.display='block';
+
+  document.getElementById('vTitle').value       = proj.name||'';
+  document.getElementById('vDesc').value         = proj.desc||'';
+  document.getElementById('vPM').value           = proj.pm||'';
+  document.getElementById('vUpdated').value      = proj.updated||'';
+  document.getElementById('vGoLiveTarget').value = proj.goLiveTarget||'';
+
+  // Logo
+  const logoImg = document.getElementById('logoPreview');
+  const logoRmv = document.getElementById('logoRemoveBtn');
+  if (proj.logo) { logoImg.src=proj.logo; logoImg.classList.add('show'); logoRmv.style.display='block'; }
+  else { logoImg.src=''; logoImg.classList.remove('show'); logoRmv.style.display='none'; }
+
+  // Timeline
+  document.querySelectorAll('[data-tl]').forEach(inp => { inp.value = proj.pipelines[+inp.dataset.tl]?.goLive||''; });
+
+  recalcDays();
+  renderPipelines(proj);
+  renderDashboard(proj);
+}
+
+function saveMeta(field, val) {
+  const proj = getProject(); if(!proj) return;
+  proj[field] = val;
+  if(field==='name'||field==='goLiveTarget') renderSidebar();
+}
+
+// ══════════════════════════════════════
+//  LOGO
+// ══════════════════════════════════════
+function handleLogoUpload(input) {
+  const proj = getProject(); if(!proj) return;
+  const file = input.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    proj.logo = e.target.result;
+    const logoImg = document.getElementById('logoPreview');
+    const logoRmv = document.getElementById('logoRemoveBtn');
+    logoImg.src = proj.logo; logoImg.classList.add('show'); logoRmv.style.display='block';
+  };
+  reader.readAsDataURL(file);
+  input.value='';
+}
+function removeLogo() {
+  const proj = getProject(); if(!proj) return;
+  proj.logo = null;
+  document.getElementById('logoPreview').classList.remove('show');
+  document.getElementById('logoPreview').src='';
+  document.getElementById('logoRemoveBtn').style.display='none';
+}
+
+// ══════════════════════════════════════
+//  DAYS TO GO-LIVE
+// ══════════════════════════════════════
+function recalcDays() {
+  const proj = getProject();
+  const badge = document.getElementById('daysBadge');
+  const cnt   = document.getElementById('daysCount');
+  if(!proj||!proj.goLiveTarget) { badge.style.display='none'; return; }
+  const diff = Math.ceil((new Date(proj.goLiveTarget)-new Date())/(1000*60*60*24));
+  badge.style.display='flex';
+  if(diff>0) { cnt.textContent=diff; badge.style.background='var(--p1l)'; badge.style.color='var(--p1)'; badge.style.borderColor='var(--p1m)'; }
+  else if(diff===0) { cnt.textContent='Today!'; badge.style.background='var(--greenbg)'; badge.style.color='var(--green)'; badge.style.borderColor='var(--greenborder)'; }
+  else { cnt.textContent=Math.abs(diff)+' overdue'; badge.style.background='var(--redbg)'; badge.style.color='var(--red)'; badge.style.borderColor='var(--redborder)'; }
+}
+
+// ══════════════════════════════════════
+//  MINI DASHBOARD
+// ══════════════════════════════════════
+function renderDashboard(proj) {
+  // Overall donut
+  const totalChecks = proj.pipelines.reduce((a,p)=>a+p.checks.length,0);
+  const doneChecks  = proj.pipelines.reduce((a,p)=>a+p.checks.filter(c=>c.done).length,0);
+  const pct = totalChecks>0 ? Math.round((doneChecks/totalChecks)*100) : 0;
+  const circ = 2*Math.PI*13; // circumference
+  const offset = circ - (pct/100)*circ;
+  document.getElementById('donutFill').style.strokeDasharray  = `${(pct/100)*circ} ${circ}`;
+  document.getElementById('donutFill').style.strokeDashoffset = 0;
+  document.getElementById('donutPct').textContent  = pct+'%';
+  document.getElementById('donutSub').textContent  = `${doneChecks} of ${totalChecks} checks done`;
+  // Color donut by overall status
+  const statuses = proj.pipelines.map(p=>p.status);
+  let donutColor = 'var(--p1)';
+  if(statuses.every(s=>s==='complete')) donutColor='var(--green)';
+  else if(statuses.some(s=>s==='at-risk')) donutColor='var(--red)';
+  document.getElementById('donutFill').style.stroke = donutColor;
+
+  // Pipeline mini cards
+  const container = document.getElementById('dashPipes');
+  container.innerHTML='';
+  PIPELINE_DEFS.forEach((def,i)=>{
+    const pd  = proj.pipelines[i];
+    const p2  = pd.checks.length>0 ? Math.round((pd.checks.filter(c=>c.done).length/pd.checks.length)*100) : 0;
+    const statLabel = {
+      'not-started': { lbl:'Not Started', cls:'ss-ns' },
+      'in-progress':  { lbl:'In Progress', cls:'ss-ip' },
+      'at-risk':      { lbl:'At Risk',     cls:'ss-ar' },
+      'complete':     { lbl:'Complete',    cls:'ss-done' }
+    }[pd.status]||{ lbl:'Not Started', cls:'ss-ns' };
+    const card = document.createElement('div');
+    card.className = `dash-pipe ${def.dcls}`;
+    card.innerHTML = `
+      <div class="dp-num">Pipeline ${def.num}</div>
+      <div class="dp-name">${def.name}</div>
+      <span class="dp-stat ${statLabel.cls}">${statLabel.lbl}</span>
+      <div class="dp-prog-track"><div class="dp-prog-fill" style="width:${p2}%"></div></div>
+      <div class="dp-pct">${p2}% ready</div>
+      <div class="dp-dates">
+        ${pd.goLive ? `Go-Live: <span>${pd.goLive}</span>` : '<span style="color:var(--muted)">No go-live set</span>'}
+      </div>`;
+    container.appendChild(card);
+  });
+}
+
+// ══════════════════════════════════════
+//  PIPELINE CARDS
+// ══════════════════════════════════════
+function renderPipelines(proj) {
+  const container = document.getElementById('pipelineCards');
+  container.innerHTML='';
+  PIPELINE_DEFS.forEach((def,i)=>{
+    const pd  = proj.pipelines[i];
+    const pct = pd.checks.length>0 ? Math.round((pd.checks.filter(c=>c.done).length/pd.checks.length)*100) : 0;
+    const card = document.createElement('div');
+    card.className = `pipeline-card ${def.cls}`;
+    card.innerHTML = `
+      <div class="pc-head">
+        <div>
+          <div class="pc-num">Pipeline ${def.num}</div>
+          <div class="pc-name">${def.name}</div>
+          <div class="pc-desc">${def.desc}</div>
+        </div>
+        <select class="status-select" data-pidx="${i}" onchange="changeStatus(this)">
+          <option value="not-started" ${pd.status==='not-started'?'selected':''}>● Not Started</option>
+          <option value="in-progress"  ${pd.status==='in-progress'?'selected':''}>● In Progress</option>
+          <option value="at-risk"      ${pd.status==='at-risk'?'selected':''}>● At Risk</option>
+          <option value="complete"     ${pd.status==='complete'?'selected':''}>● Complete</option>
+        </select>
+      </div>
+      <div class="pc-body">
+        <div class="date-row">
+          <div class="df"><label>Config Start</label><input type="date" data-pidx="${i}" data-field="configStart" value="${pd.configStart}" oninput="savePF(this)"></div>
+          <div class="df"><label>UAT / Testing</label><input type="date" data-pidx="${i}" data-field="uat" value="${pd.uat}" oninput="savePF(this)"></div>
+          <div class="df"><label>Go-Live Date</label><input type="date" data-pidx="${i}" data-field="goLive" value="${pd.goLive}" oninput="savePF(this);syncGoLiveToTL(${i},this.value)"></div>
+        </div>
+        <div class="meta-row">
+          <div class="df"><label>Pipeline Owner</label><input type="text" data-pidx="${i}" data-field="owner" value="${pd.owner}" placeholder="Name / Team" oninput="savePF(this)"></div>
+          <div class="df"><label>Stakeholder</label><input type="text" data-pidx="${i}" data-field="stakeholder" value="${pd.stakeholder}" placeholder="Name / Role" oninput="savePF(this)"></div>
+        </div>
+        <div class="cl-section" id="clSection_${i}"></div>
+        <div class="prog-wrap">
+          <div class="prog-lbl"><span>Readiness</span><span class="pct-label">${pct}%</span></div>
+          <div class="prog-track"><div class="prog-fill" style="width:${pct}%"></div></div>
+        </div>
+        <div class="df"><label>Notes / Blockers</label><textarea rows="2" data-pidx="${i}" data-field="notes" placeholder="Add dependencies, risks, or open items…" oninput="savePF(this)">${pd.notes}</textarea></div>
+      </div>`;
+    applyStatusStyle(card.querySelector('select'), pd.status);
+    container.appendChild(card);
+    renderChecklist(i);
+  });
+}
+
+function renderChecklist(pidx) {
+  const proj = getProject(); if(!proj) return;
+  const pd   = proj.pipelines[pidx];
+  const sec  = document.getElementById(`clSection_${pidx}`);
+  if(!sec) return;
+  sec.innerHTML = `
+    <div class="cl-header">
+      <span class="cl-title">Pre Go-Live Checklist</span>
+      <button class="cl-add-btn" onclick="showAddCheckItem(${pidx})">+ Add item</button>
+    </div>
+    <div class="cl-items-wrap" id="clItems_${pidx}">
+      ${pd.checks.map((c,ci)=>`
+        <div class="cl-item${c.done?' done':''}" id="cli_${pidx}_${ci}">
+          <input type="checkbox" ${c.done?'checked':''} onchange="toggleCheck(${pidx},${ci},this)">
+          <span class="cl-item-text">${c.text}</span>
+          <button class="cl-item-del" onclick="deleteCheckItem(${pidx},${ci})" title="Remove">✕</button>
+        </div>`).join('')}
+    </div>
+    <div class="cl-add-row" id="clAddRow_${pidx}" style="display:none;">
+      <input class="cl-add-input" id="clAddInput_${pidx}" type="text" placeholder="New checklist item…">
+      <button class="cl-add-confirm" onclick="confirmAddCheck(${pidx})">Add</button>
+      <button class="cl-add-cancel" onclick="cancelAddCheck(${pidx})">Cancel</button>
+    </div>`;
+}
+
+function showAddCheckItem(pidx) {
+  document.getElementById(`clAddRow_${pidx}`).style.display='flex';
+  document.getElementById(`clAddInput_${pidx}`).focus();
+}
+function cancelAddCheck(pidx) { document.getElementById(`clAddRow_${pidx}`).style.display='none'; document.getElementById(`clAddInput_${pidx}`).value=''; }
+
+document.addEventListener('keydown', e => {
+  // enter to confirm add
+});
+
+function confirmAddCheck(pidx) {
+  const input = document.getElementById(`clAddInput_${pidx}`);
+  const text  = input.value.trim(); if(!text) return;
+  const proj  = getProject(); if(!proj) return;
+  proj.pipelines[pidx].checks.push({ text, done:false });
+  input.value='';
+  document.getElementById(`clAddRow_${pidx}`).style.display='none';
+  renderChecklist(pidx);
+  updateProgress(pidx);
+  renderDashboard(proj);
+}
+
+function deleteCheckItem(pidx, cidx) {
+  const proj = getProject(); if(!proj) return;
+  proj.pipelines[pidx].checks.splice(cidx,1);
+  renderChecklist(pidx);
+  updateProgress(pidx);
+  renderDashboard(proj);
+}
+
+function toggleCheck(pidx, cidx, cb) {
+  const proj = getProject(); if(!proj) return;
+  proj.pipelines[pidx].checks[cidx].done = cb.checked;
+  const item = document.getElementById(`cli_${pidx}_${cidx}`);
+  if(item) cb.checked ? item.classList.add('done') : item.classList.remove('done');
+  updateProgress(pidx);
+  renderDashboard(proj);
+}
+
+function updateProgress(pidx) {
+  const proj = getProject(); if(!proj) return;
+  const pd   = proj.pipelines[pidx];
+  const pct  = pd.checks.length>0 ? Math.round((pd.checks.filter(c=>c.done).length/pd.checks.length)*100) : 0;
+  // find the card
+  const cards = document.querySelectorAll('.pipeline-card');
+  const card  = cards[pidx]; if(!card) return;
+  const fill  = card.querySelector('.prog-fill');
+  const lbl   = card.querySelector('.pct-label');
+  if(fill) fill.style.width = pct+'%';
+  if(lbl)  lbl.textContent  = pct+'%';
+}
+
+function savePF(input) {
+  const proj = getProject(); if(!proj) return;
+  proj.pipelines[+input.dataset.pidx][input.dataset.field] = input.value;
+}
+
+function changeStatus(select) {
+  const proj = getProject(); if(!proj) return;
+  proj.pipelines[+select.dataset.pidx].status = select.value;
+  applyStatusStyle(select, select.value);
+  renderDashboard(proj);
+}
+
+function applyStatusStyle(select, val) {
+  const m = { 'not-started':'ss-ns','in-progress':'ss-ip','at-risk':'ss-ar','complete':'ss-done' };
+  select.className = 'status-select ' + (m[val]||'ss-ns');
+}
+
+function syncTL(input) {
+  const proj = getProject(); if(!proj) return;
+  const idx = +input.dataset.tl;
+  proj.pipelines[idx].goLive = input.value;
+  document.querySelectorAll(`[data-field="goLive"]`).forEach(inp => { if(+inp.dataset.pidx===idx) inp.value=input.value; });
+  renderDashboard(proj);
+}
+function syncGoLiveToTL(idx, val) {
+  document.querySelectorAll('[data-tl]').forEach(inp => { if(+inp.dataset.tl===idx) inp.value=val; });
+  renderDashboard(getProject());
+}
+
+// ══ INIT ══
+renderSidebar(); renderProject();
+</script>
+</body>
+</html>
