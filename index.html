@@ -676,72 +676,190 @@ async function dbDeleteProject(id) { return sbDelete('projects', `id=eq.${encode
 const PDEFS = [
   { key:'p1',cls:'pp1',dcls:'dp1',num:'01',name:'Lead Qualification',desc:'Qualify leads before committing field resources',color:'#2563eb',
     checks:[
-      'Discovery form sent within 24h of contract signature and fully completed',
-      'Golden Account cloned into customer environment — no errors',
-      'Job types, categories and Lead Intake status flow configured',
-      'Four role-based permission levels set up',
-      'Zuper Connect phone number provisioned (matching market area code)',
-      'CSR Agent training content compiled (services, FAQs, pricing, scheduling)',
+      /* ── PRE-KICKOFF: Discovery Form ── */
+      'Send discovery form within 24h of contract signature',
+      'Customer completes all fields: team roster, service types, software stack, pain points',
+      'Onboarding Lead reviews form and flags guardrail violations',
+      'Map primary pain point to north star analytics metric',
+      /* ── PRE-KICKOFF: Golden Account ── */
+      'Select correct Golden Account version based on service type',
+      'Clone into customer environment — verify no errors',
+      'Customize job types and categories to match discovery form',
+      'Configure Lead Intake status flow + custom fields',
+      'Set up 4 role-based permission levels',
+      'Generate and test admin credentials; compile docs',
+      /* ── CONNECT PRE-SETUP ── */
+      'Provision Connect phone number (matching market area code)',
+      'Document business hours, after-hours rules and emergency criteria',
+      'Compile CSR Agent training content: services, FAQs, pricing, scheduling',
+      /* ── ACTIVATION: Zuper Connect Live ── */
+      'Configure call routing + business hours schedule',
+      'Activate voicemail-to-text; record greeting',
+      'Configure SMS (note 10DLC pending)',
+      'End-to-end test call: route → call summary auto-created in Zuper',
+      /* ── ACTIVATION: CSR Agent ── */
+      'Input all training content (services, area, pricing, 10+ FAQs)',
       'Run 10 QA test scenarios — 100% pass rate required before go-live',
-      'Customer data imported, verified and spot-checked (10 records)',
-      'HubSpot bidirectional sync authenticated and tested',
-      'End-to-end flow test: call → assigned → follow-up task → inspection scheduled',
-      'All 4 lead analytics populating (capture rate, AI answer rate, conversion, time-to-inspection)',
-      'UAT sign-off received'
+      'Activate for live calls; brief office manager on monitoring',
+      /* ── DATA FOUNDATION: Customer Data ── */
+      'Request data export from customer\'s current system',
+      'Clean and map to Zuper import schema',
+      'Import; verify record count; spot-check 10 records',
+      /* ── DATA FOUNDATION: CRM Integration ── */
+      'Authenticate HubSpot; map deal stages to Zuper lead statuses',
+      'Test bidirectional sync (Zuper → HubSpot and HubSpot → Zuper)',
+      'Configure sync error notifications',
+      /* ── TRAINING & GO-LIVE: Kickoff & Metrics ── */
+      'Review Days 1–7 lead pipeline analytics with decision-maker',
+      'Present north star metric progress (before/after comparison)',
+      /* ── TRAINING & GO-LIVE: Office Staff ── */
+      'Verify 100% of office accounts created and logged in',
+      'Apply CSR Agent refinements from Day 8 feedback (within 24h)',
+      'Train office manager on CSR Agent day-to-day management',
+      /* ── TRAINING & GO-LIVE: Field Tech App ── */
+      'Create mobile app accounts for all field techs',
+      'Office manager sends app download SMS to all techs',
+      'Confirm 100% of techs logged in and can view assigned jobs',
+      /* ── PIPELINE VALIDATION ── */
+      'End-to-end flow: call → assigned → follow-up task → inspection scheduled',
+      'Test web form lead intake (if applicable)',
+      'Verify CRM bidirectional sync',
+      'Confirm all 4 lead analytics populating (capture rate, AI answer rate, conversion, time-to-inspection)',
+      'Customer + office manager operating independently',
+      'Inspection Pipeline handoff confirmed'
     ] },
   { key:'p2',cls:'pp2',dcls:'dp2',num:'02',name:'Inspection',desc:'On-site inspection and signed proposal from customer',color:'#059669',
     checks:[
-      'Dispatch rules configured: auto-assign by GPS proximity and skill tag',
-      'Inspection job type created with required mobile checklist (photos, measurements, damage)',
-      '6-step inspection status flow configured with notification triggers',
-      'EagleView / HOVER integration authenticated and tested on known address',
-      'Aerial output fields mapped to CPQ proposal line items',
-      'CPQ loaded with service line pricing (labor, materials, markup, margin)',
-      'Three or more proposal templates created (one per primary service type)',
-      'E-signature configured with branded delivery email — tested end-to-end',
-      'Post-signature automation: e-sign → Approved → production job auto-created',
-      'All field techs trained — 100% can complete inspection independently',
-      'End-to-end flow: dispatch → checklist → proposal → e-sign → Approved → production job',
-      'All 4 inspection analytics populating (completed, conversion, avg proposal value, time-to-approval)',
-      'UAT sign-off received'
+      /* ── PRE-INSPECTION: Dispatch ── */
+      'Configure dispatch rules: auto-assign by GPS proximity + skill tag',
+      'Create inspection job type with required mobile checklist (photos, measurements, damage assessment)',
+      'Configure 6-step inspection status flow with notification triggers',
+      'Test dispatch-to-mobile: job visible on app with checklist',
+      /* ── PRE-INSPECTION: EagleView / HOVER ── */
+      'Confirm integration scope from discovery form (EagleView / HOVER / neither)',
+      'Authenticate API credentials; confirm Active status',
+      'Test order on known address; confirm aerial data populates job record',
+      'Map aerial output fields to CPQ proposal line items',
+      /* ── PROPOSAL ENGINE: CPQ Templates ── */
+      'Load service line pricing into CPQ (labor, materials, markup, margin)',
+      'Configure proposal template with customer branding (logo, address, license, T\u0026C)',
+      'Create 3+ proposal templates (one per primary service type)',
+      'Test CPQ: enter sample measurements; verify pricing calculates correctly',
+      /* ── PROPOSAL ENGINE: E-Signature ── */
+      'Configure e-signature (Zuper native); set up branded delivery email',
+      'Test full e-sign flow end-to-end; confirm signed PDF attaches to job record',
+      'Configure post-signature automation: job → Approved; production job auto-created',
+      /* ── INSPECTION-TO-APPROVAL: Field Tech Flow ── */
+      'End-to-end test: dispatch → tech completes checklist + photos → data in office dashboard',
+      'Confirm aerial data auto-populates proposal',
+      'Train office manager on reviewing inspection data and initiating proposal',
+      /* ── INSPECTION-TO-APPROVAL: Proposal-to-Approval ── */
+      'Generate test proposal from inspection: confirm CPQ + aerial data populate correctly',
+      'Send test proposal via e-sign; confirm homeowner-facing email is branded and professional',
+      'Confirm approved-job trigger: e-sign → Approved status → production job created',
+      /* ── TEAM ADOPTION: Field Tech Training ── */
+      'Train all techs on inspection mobile workflow (checklist, photos, status updates)',
+      'Confirm 100% of techs can complete an inspection independently',
+      'Train office manager on dispatching inspections and monitoring real-time status',
+      /* ── TEAM ADOPTION: Sales & Office ── */
+      'Train sales reps on generating proposals from inspection data',
+      'Train office staff on tracking proposal status and sending reminders',
+      'At least 1 full proposal cycle observed by office manager during training',
+      /* ── PIPELINE VALIDATION ── */
+      'End-to-end flow: inspection → dispatch → checklist → proposal → e-sign → Approved → production job',
+      'Confirm all 4 inspection analytics populating (inspections completed, conversion, avg proposal value, time-to-approval)',
+      'Verify aerial data accuracy ±5% tolerance (if in scope)',
+      'Customer confirms team operates inspection pipeline independently',
+      'Inspection Pipeline LIVE and Approved'
     ] },
   { key:'p3',cls:'pp3',dcls:'dp3',num:'03',name:'Production',desc:'Execute contracted work with customer sign-off',color:'#d97706',
     checks:[
-      'Preferred suppliers and materials catalog loaded (names, costs, lead times)',
-      'PO template configured with auto-population of job address and line items',
-      'Auto-PO rules set by job type — correct materials populate on approved job',
-      'Crew profiles set up: crew lead, members, skill tags, service zones',
-      'Scheduling rules configured: working hours, max jobs/day, blackout dates',
-      '8-step production status flow configured with automation triggers',
-      'Crew mobile checklist configured (safety, material delivery, 3+ photos, sign-off)',
-      '3 homeowner notifications configured (day-before, job-start, completion)',
-      'Quality check step configured: supervisor sign-off, punch list, re-work workflow',
-      'Invoice auto-trigger configured on Job Complete status',
-      'Invoice template set up with customer branding and payment link',
-      'Completion docs package configured (photos, certificate, warranty)',
-      'All crew leads trained — 100% completed at least 1 production job from mobile app',
-      'End-to-end flow: approved job → PO → crew scheduled → production → quality check → invoice',
-      'All 4 production analytics populating (jobs completed, cycle time, material cost, re-work rate)',
-      'UAT sign-off received'
+      /* ── PRE-PRODUCTION: Materials & Suppliers ── */
+      'Load preferred suppliers + materials catalog (names, costs, lead times)',
+      'Configure PO template (line items, approval threshold, job-address auto-population)',
+      'Set up auto-PO rules by job type: correct materials auto-populate on approved job',
+      'Confirm PO approval workflow + test notification delivery',
+      /* ── PRE-PRODUCTION: Crew Management ── */
+      'Set up crew profiles: crew lead + members, skill tags, service zones',
+      'Configure scheduling rules: working hours, max jobs/day, blackout dates',
+      'Create production job type with required fields (crew, materials, safety checklist, sign-off)',
+      'Configure 24h crew notification automation',
+      /* ── PRODUCTION JOB WORKFLOW: Approved Job → Initiation ── */
+      'Configure 8-step production status flow with automation triggers',
+      'Configure auto-PO trigger on Material Ordered status',
+      'Configure crew scheduling from job record + 24h crew notification',
+      /* ── PRODUCTION JOB WORKFLOW: Production Day ── */
+      'Configure crew mobile checklist (safety check, material delivery, 3+ photos, sign-off)',
+      'Configure 3 homeowner notifications (day-before, job-start, completion)',
+      'Configure quality check step: supervisor sign-off, punch list, re-work workflow',
+      /* ── INVOICE & COMPLETION: Invoice Auto-Generation ── */
+      'Configure invoice auto-trigger on Job Complete status',
+      'Set up invoice template with customer branding + payment link embedded',
+      'Configure deposit / progress billing rules (if applicable)',
+      'Test: complete test job → invoice auto-generates with correct amounts',
+      /* ── INVOICE & COMPLETION: Job Completion Docs ── */
+      'Configure completion docs package (final photos, completion certificate, warranty info)',
+      'Configure customer satisfaction survey trigger (if in scope)',
+      'Test: complete job → confirm completion package delivered to homeowner',
+      /* ── TEAM ADOPTION: Crew App Training ── */
+      'Train crew leads on production day mobile workflow',
+      'Run simulated production job: dispatch → checklist → photos → completion → quality check',
+      'Confirm 100% of crew leads operate production workflow independently',
+      /* ── TEAM ADOPTION: Office & Manager ── */
+      'Train office manager on production dashboard (active jobs, crew status, delays)',
+      'Train on PO management (approve, confirm delivery, handle discrepancies)',
+      'Train on invoice review, adjustments, and sending',
+      /* ── PIPELINE VALIDATION ── */
+      'End-to-end flow: approved job → PO → crew scheduled → production day → quality check → job complete → invoice generated',
+      'Confirm all 4 production analytics populating (jobs completed, cycle time, material cost, re-work rate)',
+      'Confirm 100% of crew leads completed at least 1 production job from mobile app',
+      'Customer confirms production pipeline is operational and team is independent',
+      'Revenue Pipeline handoff confirmed'
     ] },
   { key:'p4',cls:'pp4',dcls:'dp4',num:'04',name:'Revenue',desc:'Payment collection and revenue tracking',color:'#7c3aed',
     checks:[
-      'QuickBooks version confirmed (Online vs Desktop) and authenticated in Zuper',
-      'Zuper income types mapped to QB chart of accounts',
+      /* ── PRE-REVENUE: QuickBooks Integration ── */
+      'Confirm QB version (Online vs Desktop); authenticate in Zuper',
+      'Map Zuper income types to QB chart of accounts',
       'Test sync: Zuper invoice → QB with correct GL coding',
-      'Payment gateway configured (Zuper Payments / Stripe / Square)',
-      'Payment link embedded in invoice template — routing tested',
-      'AR aging dashboard configured (Current / 30 / 60 / 90+ day buckets)',
-      '3-stage payment reminder sequence configured (Day 3, Day 7, Day 14)',
-      'Collections escalation rule configured (30+ days → manager alert)',
-      'Revenue dashboard configured (daily, monthly, pipeline, outstanding AR)',
-      'Cash flow forecast configured from open invoices and approved jobs',
-      'Month-end reconciliation report configured (QB-compatible export)',
-      'End-to-end test: job complete → invoice → payment → QB sync → aging → receipt',
-      'All 5 revenue metrics populating (invoiced, collected, days-to-payment, collection rate, AR balance)',
-      'Office manager trained on collections, QB sync review and revenue reporting',
+      'Configure sync error notifications + resolution procedure',
+      /* ── PRE-REVENUE: Payment Gateway ── */
+      'Configure merchant account (Zuper Payments / Stripe / Square)',
+      'Set up payment link in invoice template; test routing to correct payment page',
+      'Test full payment flow: invoice → pay → recorded in Zuper + QB',
+      'Configure payment receipt auto-send on successful payment',
+      /* ── COLLECTIONS & AGING: Dashboard & Automation ── */
+      'Configure AR aging dashboard: Current / 30 / 60 / 90+ day buckets',
+      'Set up 3-stage payment reminder sequence (Day 3, Day 7, Day 14)',
+      'Define + configure collections escalation rule (30+ days → manager alert)',
+      'Train office manager on daily collections workflow',
+      /* ── COLLECTIONS & AGING: Revenue Reporting ── */
+      'Configure revenue dashboard (daily collected, monthly, pipeline, outstanding AR)',
+      'Set up cash flow forecast (expected collections by week from open invoices + approved jobs)',
+      'Configure month-end reconciliation report (QB-compatible export)',
+      /* ── REVENUE WORKFLOW VALIDATION: Invoice-to-Collection ── */
+      'End-to-end test: job complete → invoice → payment link → payment → QB sync → aging updated → receipt sent',
+      'Test reminder automation: overdue invoice → Day 3 reminder fires correctly',
+      'Reconciliation check: Zuper and QB totals match for all test transactions',
+      /* ── REVENUE WORKFLOW VALIDATION: Analytics ── */
+      'Confirm 5 revenue metrics populating (invoiced, collected, days-to-payment, collection rate, AR balance)',
+      'Verify QB GL posting to correct accounts (spot-check 3 transactions)',
+      'Customer reviews dashboard; confirms data accuracy with known transactions',
+      /* ── TEAM ADOPTION: Office Staff ── */
+      'Train office manager on collections workflow (monitoring, reminders, manual payments, disputes)',
+      'Train on QB sync review (check status, re-trigger, escalate errors)',
+      'Train on revenue reporting (weekly, monthly, AR aging exports)',
+      /* ── TEAM ADOPTION: Owner Revenue Visibility ── */
+      'Train owner on revenue dashboard (10-min daily review habit)',
+      'Confirm owner can pull revenue report and interpret aging buckets independently',
+      'Set up recurring weekly email report (if requested)',
+      /* ── PIPELINE VALIDATION + GRADUATION ── */
+      'End-to-end flow: job complete → invoice → payment → QB sync → aging → receipt',
+      'Confirm all 4 pipeline analytics populating across P1–P4',
+      'Zero manual workaround audit across all pipelines',
       'Customer executive sign-off: all 4 pipelines LIVE',
-      'UAT sign-off received'
+      'CSM introduction; 30-day check-in scheduled; handoff notes filed',
+      'Archive all onboarding docs; customer record updated with go-live date'
     ] }
 ];
 const DEPS = { 2:1, 3:2 };
